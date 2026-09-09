@@ -73,7 +73,7 @@ def gen_portrait(desc: str, style: str = '') -> dict:
         return {'error': '没配 relay（中转站）'}
     item = {'id': 1, 'name': 'portrait', 'desc': '立绘', 'size': '1024x1024', 'transparent': False, 'quality': 'medium',
             'prompt': pipeline.PORTRAIT_TMPL.format(desc=desc.strip('。 '), style=style or pipeline.DEFAULT_STYLE)}
-    (root() / 'prompts.json').write_text(json.dumps([item], ensure_ascii=False), encoding='utf-8')
+    (root() / 'prompts.json').write_text(json.dumps({'items': [item]}, ensure_ascii=False), encoding='utf-8')
     im = c.get('model')                                   # ⚑ 图像模型名从 relay 凭据取（各家中转站不同）
     code, out = sh([TOOLS / 'artgen' / 'gen.py', '1', '--force'] + (['--model', im] if im else []),
                    {'OPENAI_API_KEY': c['key'], 'OPENAI_BASE_URL': c['base']})
@@ -107,8 +107,8 @@ def gen_video(action: str, motion: str, liubai: str = 'liubai.png', provider: st
     """图生视频。motion 只写运动段（要看到的姿态和方向、该动的部位点名+幅度、结尾回站姿）；构图约束和禁止句由模板补。
     --img 和 --last 都给留白图 ⇒ 首尾帧同图，动作间不需要过渡帧。
     单价：dashscope 480P/2s ¥0.40、480P/5s ¥1.05、720P/5s ¥2.10；zhipu / ark 免费。任务 id 落盘即扣费。"""
-    price = pipeline.video_price(provider, res, int(dur))
     model = model or pipeline.VIDEO_PROVIDERS.get(provider, {}).get('model', '')
+    price = pipeline.video_price(provider, res, int(dur), model)
     pf = f'prompt_{action}.txt'
     (root() / pf).write_text(pipeline.build_prompt(action if action in pipeline.ACTIONS else 'attack', '', motion), encoding='utf-8')
     (root() / 'work' / 'anim').mkdir(parents=True, exist_ok=True)

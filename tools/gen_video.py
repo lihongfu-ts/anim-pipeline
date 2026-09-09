@@ -398,6 +398,12 @@ def submit(img: str, prompt: str, model: str) -> str:
     #    ⚠⚠ 而且 vid2anim 的自检只查「水印区还有没有残留」，⛔ 不查脚有没有被切掉
     #      ⇒ ⚑ 这个错误会**静默通过**，出来一张没有脚的图集。
     #    ⇒ ⚑ 从源头不打水印，⛔ 别在下游修。
+    # ⚑ 首尾帧：⚑ cogvideox-3 / vidu2-start-end 的 image_url 传**两张的列表**（⚑ 2026-09 文档）；
+    #   ⚑ cogvideox-flash 不支持，⚑ 传了会被忽略或报错 ⇒ ⚑ 只在给了 --last 时才变列表
+    last = opt('--last')
+    if last:
+        with open(last, 'rb') as f:
+            b64 = [b64, base64.b64encode(f.read()).decode()]
     body = {'model': model, 'prompt': prompt, 'image_url': b64, 'with_audio': False,
             'watermark_enabled': False}
     r = post(c['baseUrl'].rstrip('/') + '/videos/generations', body, c['apiKey'])

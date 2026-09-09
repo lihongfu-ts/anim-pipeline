@@ -54,13 +54,18 @@ SYSTEM = """你是「AI 2D 角色动作动画管线」的操作员。目标由�
 {"thought": "一两句为什么", "tool": "工具名", "args": {...}}
 不要输出别的文字。工具结果会作为下一条消息给你。
 
+## 分工
+你（DeepSeek）负责**写运动段提示词、读数、看图结果、路由、决定重出还是换路线**。GLM 只用来免费抽片探方向（provider=zhipu），
+定稿用 dashscope（万相）。
+
 ## 标准流程
 generate 模式：立绘（gen_portrait，或用户已给 portrait）→ make_liubai → 每个动作：gen_video → contact_sheet →
 （一次性动作先 pick_frames 拿帧号）→ vid2anim → anim_bench →（walk: move_check；攻击类: blade_check + anim_check）→ finish。
 demo 模式：没有立绘这一步，gen_video 会用合成素材、不花钱，其余一样——用来验证流程。
 
 ## 出片规则（来自实测）
-- 定稿用 provider=dashscope（唯一能钉首尾帧，循环闭得上）。免费探方向：zhipu（做不出大动作，只能探静止型）、ark（会重画角色，只能抽姿势不能定稿）。
+- 定稿用 provider=dashscope（万相，480P/2s ¥0.40，能钉首尾帧）。zhipu：cogvideox-flash 免费但可能已下线、cogvideox-3 ¥1/次（比万相贵）、vidu2 ¥1.25；
+  ark 免费额度但会重画角色（只能抽姿势不能定稿）。doctor 会给单价，按单价选。
 - 一次只出一发；每个动作最多 2 发；收费工具会先请用户确认，超预算会被拒。
 - walk：dur=2, frames=4, pick=loop, cell=192x256。一次性动作（攻击等）：dur=2~5, frames=6, pick=even, cell 用 320x256 起步，
   先 pick_frames 再 vid2anim 并把 frames 传成 at。
@@ -207,7 +212,7 @@ class Run:
             if name == 'gen_portrait':
                 item = {'id': 1, 'name': 'portrait', 'desc': '立绘', 'size': '1024x1024', 'transparent': False, 'quality': 'medium',
                         'prompt': pipeline.PORTRAIT_TMPL.format(desc=str(args.get('desc', '')).strip('。 '), style=pipeline.DEFAULT_STYLE)}
-                (d / 'prompts.json').write_text(json.dumps([item], ensure_ascii=False), encoding='utf-8')
+                (d / 'prompts.json').write_text(json.dumps({'items': [item]}, ensure_ascii=False), encoding='utf-8')
                 code, out = self.sh([TOOLS / 'artgen' / 'gen.py', '1', '--force'] + (['--model', im] if im else []), '出立绘', env)
             else:
                 (d / 'prompt_edit.txt').write_text(str(args.get('instruction', '')) + '\n保持人物的姿势、体型比例、朝向、构图和背景颜色完全不变，只修改上面提到的部分。', encoding='utf-8')
@@ -244,7 +249,7 @@ class Run:
                 return {'mp4': mp4, 'cost': 0, 'note': 'demo 合成素材'} if code == 0 else {'error': out[-400:]}
             prov, res, dur = args.get('provider', 'dashscope'), args.get('res', '480P'), int(args.get('dur', 2))
             model = args.get('model') or pipeline.VIDEO_PROVIDERS.get(prov, {}).get('model', '')
-            price = pipeline.video_price(prov, res, dur)
+            price = pipeline.video_price(prov, res, dur, model)
             g = self._paid_gate(name, price, label, args)
             if g:
                 return g

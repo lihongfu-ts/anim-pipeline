@@ -34,9 +34,17 @@ PRICE_VIDEO = {                             # ⚑ (provider, 分辨率, 秒) →
 PER_SEC = {('dashscope', '480P'): 0.21, ('dashscope', '720P'): 0.42}   # ⚑ 表里没有的组合按秒估
 
 
-def video_price(provider: str, res: str, dur: int) -> float:
+# ⚑ 智谱按次计价（2026-09 文档）：⚑ cogvideox-flash 曾免费、现已不在文档里（⚠ 能不能用得真发一次）；
+#   ⚑ cogvideox-3 ¥1/次（支持首尾帧）；vidu2 ¥1.25/次（4s 720P，首尾帧）；vidu2-reference ¥2.5
+ZHIPU_PRICE = {'cogvideox-flash': 0.0, 'cogvideox-3': 1.0, 'vidu2-image': 1.25, 'vidu2-start-end': 1.25,
+               'vidu2-reference': 2.5, 'viduq1-text': 1.0, 'viduq1-image': 1.0}
+
+
+def video_price(provider: str, res: str, dur: int, model: str = '') -> float:
+    if provider == 'zhipu':
+        return ZHIPU_PRICE.get(model or VIDEO_PROVIDERS['zhipu']['model'], 1.0)
     if provider != 'dashscope':
-        return 0.0                          # ⚑ GLM 免费 / ark 免费额度 / minimax 另计（未接入计价）
+        return 0.0                          # ⚑ ark 免费额度 / minimax 另计（未接入计价）
     if (provider, res, dur) in PRICE_VIDEO:
         return PRICE_VIDEO[(provider, res, dur)]
     return round(PER_SEC.get((provider, res), 0.21) * dur, 2)
@@ -45,7 +53,7 @@ def video_price(provider: str, res: str, dur: int) -> float:
 # ⚑ 各家默认模型（⚑ 与 gen_video.py 的默认一致；⚠ 模型名会漂，⚑ 网页「凭据 → 检查」能列出可用的）
 VIDEO_PROVIDERS = {
     'dashscope': dict(label='万相（定稿，唯一能钉首尾帧）', model='wan3.0-video', paid=True),
-    'zhipu':     dict(label='智谱 GLM（免费抽构图，做不出大动作）', model='cogvideox-flash', paid=False),
+    'zhipu':     dict(label='智谱（cogvideox-flash 免费·若仍可用；cogvideox-3 ¥1/次·首尾帧；vidu2-start-end ¥1.25）', model='cogvideox-flash', paid=False),
     'ark':       dict(label='火山 seedance（免费额度，会重画角色）', model='doubao-seedance-1-0-pro-250528', paid=False),
     'minimax':   dict(label='MiniMax（另计费）', model='MiniMax-H3', paid=False),
 }
@@ -196,31 +204,60 @@ def vlm_pick(png_path, motion: str, n: int, total: int, model: str, log, timeout
             'thin_weapon': ints(d.get('thin_weapon')), 'notes': str(d.get('notes', ''))[:200], 'raw': txt[:600]}
 
 
-def llm_prompts(sentence: str, style: str, actions, model: str, log):
-    """⚑ 走智谱 OpenAI 兼容接口。⚠ 任何失败都退回模板 —— ⛔ 提示词这步不能成为花钱前的阻塞点。"""
+def _chat(provider, model, system, user, log, temperature=0.4, timeout=60):
+    """⚑ 一次 OpenAI 兼容 chat 调用。⚑ provider = 'glm' | 'llm'（⚑ 没指定：llm → glm）。⚑ 失败返回 None（⚑ 调用方决定退路）。"""
     import urllib.request
     import urllib.error
-    # ⚑ 优先用独立配的 llm（⚑ 任意 OpenAI 兼容端点），⚑ 没配再退回出片用的 glm key
-    c = _creds.get('llm') or _creds.get('glm')
+    c = _creds.get(provider) if provider else None
     if not c:
-        log('  ⚠ 没配 llm / glm，提示词用内置模板')
+        c = _creds.get('llm') or _creds.get('glm')
+        provider = 'llm' if _creds.get('llm') else 'glm'
+    if not c:
+        log('  ⚠ 没配 llm / glm')
         return None
     base = (c['base'] or 'https://open.bigmodel.cn/api/paas/v4').rstrip('/')
-    model = model or c.get('model') or LLM_DEFAULT_MODEL
-    log(f'  ⚑ LLM：{c["_from"]} · {base} · {model}')
-    body = {'model': model, 'temperature': 0.4,
-            'messages': [{'role': 'system', 'content': LLM_SYSTEM},
-                         {'role': 'user', 'content': f'角色：{sentence}\n风格：{style}\n需要的动作：{", ".join(actions)}'}]}
+    model = model or c.get('model') or (LLM_DEFAULT_MODEL if provider == 'glm' else '')
+    log(f'  ⚑ {provider}（{c["_from"]}）· {base} · {model}')
+    body = {'model': model, 'temperature': temperature,
+            'messages': [{'role': 'system', 'content': system}, {'role': 'user', 'content': user}]}
     req = urllib.request.Request(f'{base}/chat/completions', data=json.dumps(body).encode(),
                                  headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c['key']})
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            txt = json.loads(r.read().decode())['choices'][0]['message']['content']
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode())['choices'][0]['message']['content']
     except urllib.error.HTTPError as e:
-        log(f'  ⚠ LLM HTTP {e.code}：{e.read().decode(errors="replace")[:300]} ⇒ 用内置模板')
-        return None
+        log(f'  ⚠ HTTP {e.code}：{e.read().decode(errors="replace")[:300]}')
     except Exception as e:
-        log(f'  ⚠ LLM 调用失败：{e} ⇒ 用内置模板')
+        log(f'  ⚠ 调用失败：{e}')
+    return None
+
+
+MOTION_SYSTEM = """你是 2D 游戏角色动作动画的提示词工程师。用户给一个动作名和角色描述，你只输出一段中文「运动段」（100~200 字，纯文本，不要标题、不要 JSON、不要解释）。
+规则（全部来自实测，违反就出废片）：
+1. 只描述**要看到的姿态和运动方向**，不描述物理原因（写"每一缕头发笔直朝向画面正上方"，不写"有风"）。
+2. 该动的部位一个个点名并给幅度（"幅度清晰可见"、"划出清晰的弧线"）。不写"其余保持不动"——外层模板负责。
+3. 不写转速、不写"每秒"；不写"砸在地面上"这类会引入地面的词，只写方向。
+4. 一次性动作：蓄力 → 发力 → 停住 → 收回到开头站姿；命中时武器/拳头指向角色面朝方向。走路：原地踏步、双腿交替、双臂摆动、身体起伏，不位移。
+5. 侧视图里别写"上半身后仰"（会被画成转向镜头），用"下蹲、双脚原地"这类中性描述。"""
+
+
+def llm_motion(action: str, label: str, character: str, hint: str, model: str, log, provider='glm'):
+    """⚑ 让 GLM（免费）写某个动作的运动段；⚑ DeepSeek 只负责审和判。⚑ 失败返回 None（⚑ 调用方退回内置模板）。"""
+    txt = _chat(provider, model, MOTION_SYSTEM,
+                f'动作：{label}（{action}）\n角色：{character or "未指定"}\n补充要求：{hint or "无"}', log, temperature=0.5)
+    if not txt:
+        return None
+    txt = txt.strip().strip('`').strip()
+    return txt if 20 <= len(txt) <= 600 else None
+
+
+def llm_prompts(sentence: str, style: str, actions, model: str, log, provider=None):
+    """⚑ 一句话 → 立绘描述 + 各动作运动段（JSON）。⚑ provider 默认 llm（DeepSeek；⚑ 用户裁决：GLM 只负责免费抽视频）。
+    ⚠ 任何失败都退回模板 —— ⛔ 这步不能成为花钱前的阻塞点。"""
+    txt = _chat(provider or ('llm' if _creds.get('llm') else 'glm'), model, LLM_SYSTEM,
+                f'角色：{sentence}\n风格：{style}\n需要的动作：{", ".join(actions)}', log)
+    if not txt:
+        log('  ⚠ 扩写失败 ⇒ 用内置模板')
         return None
     m = re.search(r'\{.*\}', txt, re.S)
     try:
@@ -298,7 +335,7 @@ class Job:
             by['角色'] = 0.0 if self.spec.get('portrait_upload') else PRICE_PORTRAIT
             total += by['角色']
             for a in self.state['actions']:
-                p = video_price(self._prov(a)[0], self._opt(a, 'res'), int(self._opt(a, 'dur')))
+                p = video_price(*self._prov(a)[:1], self._opt(a, 'res'), int(self._opt(a, 'dur')), self._prov(a)[1])
                 by[self.actions[a]['label']] = p
                 total += p
         else:
@@ -359,7 +396,8 @@ class Job:
                 if o.get('prompt_llm'):
                     self.log('\n───── 提示词扩写（LLM）')
                     d = llm_prompts(self.state['prompt'], self.state['style'] or DEFAULT_STYLE,
-                                    self.state['actions'], o.get('prompt_llm_model') or LLM_DEFAULT_MODEL, self.log)
+                                    self.state['actions'], o.get('prompt_llm_model') or '', self.log,
+                                    provider=o.get('prompt_llm_provider'))
                     if d:
                         self.state['prompts'] = d
                         self.save()
@@ -408,7 +446,8 @@ class Job:
                 'prompt': PORTRAIT_TMPL.format(desc=desc.strip('。 '),
                                                style=self.state['style'] or DEFAULT_STYLE)}
         self.state['artifacts']['portrait_prompt'] = item['prompt']
-        (self.dir / 'prompts.json').write_text(json.dumps([item], ensure_ascii=False, indent=2),
+        # ⚠ gen.py 要的是 {"items": [...]}，⛔ 不是裸数组（⚑ 预检时崩过一次）
+        (self.dir / 'prompts.json').write_text(json.dumps({'items': [item]}, ensure_ascii=False, indent=2),
                                                encoding='utf-8')
         argv = [TOOLS / 'artgen' / 'gen.py', '1', '--force']
         im = self.state['options'].get('image_model') or c.get('model')
@@ -444,7 +483,7 @@ class Job:
             pf.write_text(build_prompt(a, self.state['options'].get(a, {}).get('extra', ''), motion),
                           encoding='utf-8')
             art.update(prompt=f'prompt_{a}.txt', provider=prov, model=model, res=res, dur=dur)
-            price = video_price(prov, res, dur)
+            price = video_price(prov, res, dur, model)
             self.step(f'{a}.video', f'{who}：出片（{prov} {model} {res}/{dur}s，{"¥%.2f" % price if price else "免费"}）',
                       [TOOLS / 'gen_video.py', f'--img={src}', f'--last={src}', f'--tag={a}',
                        f'--promptfile=prompt_{a}.txt', f'--provider={prov}', f'--model={model}',

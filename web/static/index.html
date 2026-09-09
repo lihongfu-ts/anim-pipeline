@@ -70,8 +70,9 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     <label>风格（可改）</label>
     <input type="text" id="style" value="Q 版 3.5 头身，厚涂风格，颜色饱和，轮廓清晰。">
     <div class="row" style="margin-top:8px">
-      <label style="margin:0"><input type="checkbox" id="llm"> 让 LLM 先把一句话扩成四段提示词</label>
-      <input type="text" id="llmModel" value="glm-5.3-flash" style="width:150px" title="走 llm 凭据的 chat/completions，失败自动退回模板">
+      <label style="margin:0"><input type="checkbox" id="llm"> 让大模型先把一句话扩成四段提示词</label>
+      <select id="llmProv" style="width:auto" title="用哪家写提示词"><option value="llm">llm（DeepSeek）</option><option value="glm">glm</option></select>
+      <input type="text" id="llmModel" value="glm-5.3-flash" style="width:150px" title="模型名；失败自动退回模板">
     </div>
     <div class="row" style="margin-top:4px">
       <label style="margin:0"><input type="checkbox" id="vlm"> 让 VLM 看联络表挑帧 + 判崩坏（一次性动作；崩了就停，不再花钱）</label>
@@ -260,7 +261,10 @@ async function loadDoctor(){
   for(const p of ['relay','wan','glm','ark','minimax','llm']) chip(p,!!D.creds[p],true);
   $('#chips').innerHTML=c.join('');
   $('#credsfile').textContent=D.creds_file; $('#cFile').textContent=D.creds_file;
-  $('#llmModel').value=(D.creds.llm&&D.creds.llm.model)||D.llm_default;$('#vlmModel').value=(D.creds.llm&&D.creds.llm.vision_model)||$('#llmModel').value;
+  // ⚑ 分工（用户裁决）：提示词 + 看图 + 分析都用 llm（DeepSeek）；glm 只负责免费抽视频（动作卡里 provider 选 zhipu）
+  $('#llmProv').value=D.creds.llm?'llm':'glm';
+  const setLlmModel=()=>{$('#llmModel').value=$('#llmProv').value==='glm'?D.llm_default:((D.creds.llm&&D.creds.llm.model)||'')};setLlmModel();$('#llmProv').onchange=setLlmModel;
+  $('#vlmModel').value=(D.creds.llm&&D.creds.llm.vision_model)||(D.creds.llm&&D.creds.llm.model)||'';
   buildActs(); renderCredTable(); estimate();
 }
 
@@ -314,7 +318,7 @@ function readOpts(){
   $$('.act').forEach(el=>{o[el.dataset.a]={provider:el.querySelector('.prov').value,model:el.querySelector('.model').value.trim(),
     res:el.querySelector('.res').value,dur:+el.querySelector('.dur').value,frames:+el.querySelector('.frames').value,
     pick:el.querySelector('.pick').value,cell:el.querySelector('.cell').value.trim(),extra:el.querySelector('.extra').value.trim()}});
-  o.prompt_llm=$('#llm').checked;o.prompt_llm_model=$('#llmModel').value.trim();
+  o.prompt_llm=$('#llm').checked;o.prompt_llm_provider=$('#llmProv').value;o.prompt_llm_model=$('#llmModel').value.trim();
   o.vlm_pick=$('#vlm').checked;o.vlm_model=$('#vlmModel').value.trim();o.stop_on_collapse=true;return o;
 }
 function readCustom(){          // ⚑ 预设和自定义都以 custom_actions 形式送后端（⚑ 带 label / motion / checks）
@@ -323,12 +327,12 @@ function readCustom(){          // ⚑ 预设和自定义都以 custom_actions �
   return c;
 }
 const lbl=(j,a)=>(j.action_defs&&j.action_defs[a]&&j.action_defs[a].label)||(D.actions[a]&&D.actions[a].label)||a;
-function vprice(p,r,d){if(p!=='dashscope')return 0;const k=`${p}|${r}|${d}`;if(D.prices.video[k]!=null)return D.prices.video[k];return +((D.prices.per_sec[`${p}|${r}`]||0.21)*d).toFixed(2)}
+function vprice(p,r,d,m){if(p==='zhipu'){const z=D.prices.zhipu||{};return z[m]!=null?z[m]:1.0}if(p!=='dashscope')return 0;const k=`${p}|${r}|${d}`;if(D.prices.video[k]!=null)return D.prices.video[k];return +((D.prices.per_sec[`${p}|${r}`]||0.21)*d).toFixed(2)}
 function estimate(){
   const gen=$('input[name=mode]:checked').value==='generate';$('#confirmWrap').hidden=!gen;
   const o=readOpts();let rows=[],total=0;
   const port=gen&&!portraitPath?D.prices.portrait:0;rows.push(['角色（出立绘）',port]);total+=port;
-  $$('.act').forEach(el=>{const k=el.dataset.a,on=el.querySelector('.aon').checked;const p=on&&gen?vprice(o[k].provider,o[k].res,o[k].dur):0;
+  $$('.act').forEach(el=>{const k=el.dataset.a,on=el.querySelector('.aon').checked;const p=on&&gen?vprice(o[k].provider,o[k].res,o[k].dur,o[k].model):0;
     const name=(el.querySelector('.lbl')&&el.querySelector('.lbl').value.trim())||ACTS[k].label||k;
     el.querySelector('[data-cost]').textContent=on?(gen?(p?`¥${p.toFixed(2)}`:'免费'):'¥0'):'';if(on){rows.push([name+`（${o[k].provider} ${o[k].res}/${o[k].dur}s）`,p]);total+=p}});
   $('#costTable').innerHTML=rows.map(([n,p])=>`<tr><td>${n}</td><td class="cost" style="text-align:right">¥${p.toFixed(2)}</td></tr>`).join('');

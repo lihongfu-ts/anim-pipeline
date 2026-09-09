@@ -119,6 +119,12 @@ def get(name):
         raise KeyError(f'不认识的 provider "{name}"，可选：{list(ALIASES)}')
     cfg_key, env_prefix = ALIASES[name]
     env, user, proj = _sources()
+    # ⚑⚑ 别名互通：⚑ `--set=wan` / 网页端存的是 `wan`，⚑ 而 gen_video.py 按 `dashscope` 来取 ——
+    #   ⛔ 只查一个名字会漏（⚑ 实测 get('dashscope') 找不到 wan 那条 ⇒ 退回读 config.json ⇒ FileNotFoundError）。
+    #   ⇒ ⚑ 同一 cfg_key 下的所有别名都查一遍。
+    names = [name] + [n for n, (ck, _) in ALIASES.items() if ck and ck == cfg_key and n != name]
+    if cfg_key and cfg_key not in names:
+        names.append(cfg_key)
 
     # ① 环境变量
     k = env.get(f'{env_prefix}_API_KEY')
@@ -128,7 +134,7 @@ def get(name):
                 'model': env.get(f'{env_prefix}_MODEL', ''),
                 'vision_model': env.get(f'{env_prefix}_VISION_MODEL', ''), '_from': 'env'}
     # ② 用户目录
-    d = user.get(name) or (user.get(cfg_key) if cfg_key else None)
+    d = next((user[n] for n in names if user.get(n)), None)
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
                 'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), 'vision_model': d.get('vision_model', ''), '_from': 'user'}
@@ -139,7 +145,7 @@ def get(name):
             return {'base': (e.get('OPENAI_BASE_URL') or '').rstrip('/'),
                     'key': e['OPENAI_API_KEY'], 'workspace': '', '_from': 'project/.env'}
         return None
-    d = proj.get(cfg_key) if cfg_key else None
+    d = next((proj[n] for n in names if isinstance(proj.get(n), dict)), None)
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
                 'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), 'vision_model': d.get('vision_model', ''),
