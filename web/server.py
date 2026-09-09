@@ -237,7 +237,7 @@ def create_job(body: dict):
         if a not in pipeline.ACTIONS and not (known[a].get('motion') or '').strip() and mode == 'generate':
             raise HTTPException(400, f'自定义动作 {a} 没写运动描述')
     if mode == 'generate':
-        if not body.get('prompt', '').strip() and not body.get('portrait_upload') and not body.get('portrait_job'):
+        if not body.get('prompt', '').strip() and not body.get('portrait_upload') and not body.get('portrait_job') and not body.get('portrait_from'):
             raise HTTPException(400, '真实生成需要一句话描述，或上传一张立绘')
         if not body.get('confirm'):
             raise HTTPException(400, '真实生成会花钱，需要勾选确认')
