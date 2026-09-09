@@ -73,7 +73,8 @@ demo 模式：没有立绘这一步，gen_video 会用合成素材、不花钱�
 ## motion 怎么写（只写运动段，模板会补构图约束和禁止句）
 - 只描述**要看到的姿态和运动方向**，不描述物理原因（写"发梢指向画面顶边"，不写"有风"）。
 - 该动的部位一个个点名并给幅度；不写转速、不写"每秒"；不写"砸在地面上"这类会引入地面的词。
-- 一次性动作：蓄力 → 发力 → 停住 → 收回到开头站姿。走路：原地踏步、双腿交替、双臂摆动、身体起伏，不位移。
+- 一次性动作：蓄力 → 发力 → 停住 → 收回到开头站姿。走路：原地踏步、双腿交替、手臂摆动、身体起伏，不位移；**武器保持原位不挥不转**（写了"划出弧线"模型就只演挥剑）。
+- vid2anim 输出 no_loop=true / 形变≈0 ⇒ 视频里没有周期动作 ⇒ 看联络表，改运动段重出，别用那张图集。
 - 连招的每一段必须是**不同动作类型**（挥 / 刺 / 砸；直拳 / 勾拳 / 上勾），同一动作换方向会被看成同一招。
 
 ## 怎么读数、怎么路由
@@ -262,8 +263,9 @@ class Run:
             pf = f'prompt_{tag}_{self.state["shots"][tag] + 1}.txt'
             (d / pf).write_text(pipeline.build_prompt(tag if tag in A else 'attack', '', motion), encoding='utf-8')
             self.state['cost']['by'][label] = round(self.state['cost']['by'].get(label, 0.0) + price, 2)
-            code, out = self.sh([TOOLS / 'gen_video.py', f'--img={liubai}', f'--last={liubai}', f'--tag={tag}', f'--promptfile={pf}',
-                                 f'--provider={prov}', f'--model={model}', f'--res={res}', f'--dur={dur}'],
+            use_last = pipeline.VIDEO_PROVIDERS.get(prov, {}).get('last', True)     # ⚑ 智谱不给首尾帧（给了就静止）
+            code, out = self.sh([TOOLS / 'gen_video.py', f'--img={liubai}'] + ([f'--last={liubai}'] if use_last else []) +
+                                [f'--tag={tag}', f'--promptfile={pf}', f'--provider={prov}', f'--model={model}', f'--res={res}', f'--dur={dur}'],
                                 f'{label}：出片（{prov} {res}/{dur}s ¥{price:.2f}）', spend=(label, price))
             self.state['shots'][tag] += 1
             if code != 0 or not (d / mp4).exists():

@@ -59,11 +59,13 @@ def video_price(provider: str, res: str, dur: int, model: str = '') -> float:
 
 
 # ⚑ 各家默认模型（⚑ 与 gen_video.py 的默认一致；⚠ 模型名会漂，⚑ 网页「凭据 → 检查」能列出可用的）
+# ⚑ last：⚑ 要不要把留白图同时当尾帧（--last）。⚠ 实测 2026-09-09：⚑ CogVideoX-3 首尾帧给同一张图 ⇒ **161 帧一动不动**
+#   （⚑ 它的首尾帧模式像是在两张图之间插值，⚑ 首尾相同就等于不动）；⚑ 万相则是在中间"演"，⚑ 首尾同图正是循环闭合的地基。
 VIDEO_PROVIDERS = {
-    'dashscope': dict(label='万相（定稿，唯一能钉首尾帧）', model='wan3.0-video', paid=True),
-    'zhipu':     dict(label='智谱 CogVideoX-3（标价 ¥1/次，买包约 ¥0.1；支持首尾帧）', model='cogvideox-3', paid=True),
-    'ark':       dict(label='火山 seedance（免费额度，会重画角色）', model='doubao-seedance-1-0-pro-250528', paid=False),
-    'minimax':   dict(label='MiniMax（另计费）', model='MiniMax-H3', paid=False),
+    'dashscope': dict(label='万相（定稿，钉首尾帧）', model='wan3.0-video', paid=True, last=True),
+    'zhipu':     dict(label='智谱 CogVideoX-3（标价 ¥1/次，买包约 ¥0.1；⛔ 不给首尾帧，给了就静止）', model='cogvideox-3', paid=True, last=False),
+    'ark':       dict(label='火山 seedance（免费额度，会重画角色）', model='doubao-seedance-1-0-pro-250528', paid=False, last=True),
+    'minimax':   dict(label='MiniMax（另计费）', model='MiniMax-H3', paid=False, last=True),
 }
 LLM_DEFAULT_MODEL = 'glm-5.3-flash'         # ⚑ 一句话 → 四段提示词的扩写模型（走智谱 chat/completions）
 
@@ -95,9 +97,10 @@ CANCEL_FROM = 0.23     # ⚑ 取消窗口开在收招帧（文档 §7.1 ④：0.
 ACTIONS = {
     'walk': dict(label='移动', dur=2, res='480P', frames=4, pick='loop', cell='192x256',
                  checks=['move'],
-                 motion=('原地踏步走路：双腿交替前后迈步，幅度清晰可见；双臂随步伐前后自然摆动；'
+                 motion=('原地踏步走路：双腿交替前后迈步，抬腿幅度清晰可见；空着的那只手臂随步伐前后自然摆动；'
                          '身体随步伐有轻微的上下起伏；头发和衣摆随动作摆动。'
-                         '全程不离开原位，不向任何方向移动。')),
+                         '手中的武器保持横在身前原位，不挥动、不转动、不举起。'
+                         '全程不离开原位，不向任何方向移动，人物大小不变。')),
     'attack': dict(label='攻击', dur=5, res='480P', frames=6, pick='even', cell='384x256',
                    checks=['blade', 'anim'],
                    motion=('一次完整的横向挥砍：先把武器向身后拉开蓄力，身体略微后坐；'
@@ -146,7 +149,7 @@ LLM_SYSTEM = """你是 2D 游戏角色动画的提示词工程师。用户给一
 3. 把该动的部位一个个点名并给幅度（"幅度清晰可见"、"划出清晰的弧线"）。不要写"其余保持不动"——那由外层模板负责。
 4. 不要写转速、不要写"每秒"。不要写"砸在地面上"这类会引入地面的词。
 5. attack 必须是一次完整动作：蓄力 → 发力 → 停住 → 收回到开头站姿。命中时武器指向角色面朝方向。
-6. walk 是原地踏步，不位移。
+6. walk 是原地踏步，不位移；**武器保持原位不挥不转不举**（实测：写了"长剑划出弧线"，模型就只演挥剑、腿不动）。腿是主角：抬腿幅度、交替、身体起伏。
 只输出 JSON，不要解释。"""
 
 
@@ -340,7 +343,7 @@ class Job:
     def _estimate(self):
         by, total = {}, 0.0
         if self.spec['mode'] == 'generate':
-            by['角色'] = 0.0 if self.spec.get('portrait_upload') else PRICE_PORTRAIT
+            by['角色'] = 0.0 if (self.spec.get('portrait_upload') and not self.spec.get('portrait_from')) else PRICE_PORTRAIT
             total += by['角色']
             for a in self.state['actions']:
                 p = video_price(*self._prov(a)[:1], self._opt(a, 'res'), int(self._opt(a, 'dur')), self._prov(a)[1])
@@ -492,9 +495,10 @@ class Job:
                           encoding='utf-8')
             art.update(prompt=f'prompt_{a}.txt', provider=prov, model=model, res=res, dur=dur)
             price = video_price(prov, res, dur, model)
-            self.step(f'{a}.video', f'{who}：出片（{prov} {model} {res}/{dur}s，{"¥%.2f" % price if price else "免费"}）',
-                      [TOOLS / 'gen_video.py', f'--img={src}', f'--last={src}', f'--tag={a}',
-                       f'--promptfile=prompt_{a}.txt', f'--provider={prov}', f'--model={model}',
+            use_last = VIDEO_PROVIDERS.get(prov, {}).get('last', True)
+            self.step(f'{a}.video', f'{who}：出片（{prov} {model} {res}/{dur}s，{"¥%.2f" % price if price else "免费"}{"" if use_last else "，无首尾帧"}）',
+                      [TOOLS / 'gen_video.py', f'--img={src}'] + ([f'--last={src}'] if use_last else []) +
+                      [f'--tag={a}', f'--promptfile=prompt_{a}.txt', f'--provider={prov}', f'--model={model}',
                        f'--res={res}', f'--dur={dur}'],
                       cost=price, who=who, spend_on='submit')
         else:

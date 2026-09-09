@@ -229,28 +229,33 @@ def create_job(body: dict):
         known.update(pipeline.PRESETS.get(pk, {}).get('actions', {}))
     known.update(body.get('custom_actions') or {})
     actions = [a for a in body.get('actions', []) if a in known]
-    if not actions:
+    # ⚑ 两段式（用户要求）：⚑ generate 模式允许**只出立绘**（actions 为空）⇒ 玩家看了满意再用它出动作
+    portrait_only = mode == 'generate' and not actions and not body.get('portrait_upload') and not body.get('portrait_job')
+    if not actions and not portrait_only:
         raise HTTPException(400, '至少选一个动作')
     for a in actions:
         if a not in pipeline.ACTIONS and not (known[a].get('motion') or '').strip() and mode == 'generate':
             raise HTTPException(400, f'自定义动作 {a} 没写运动描述')
     if mode == 'generate':
-        if not body.get('prompt', '').strip() and not body.get('portrait_upload'):
+        if not body.get('prompt', '').strip() and not body.get('portrait_upload') and not body.get('portrait_job'):
             raise HTTPException(400, '真实生成需要一句话描述，或上传一张立绘')
         if not body.get('confirm'):
             raise HTTPException(400, '真实生成会花钱，需要勾选确认')
         have, can = _creds.probe()
-        if not body.get('portrait_upload') and not have.get('relay'):
+        if not body.get('portrait_upload') and not body.get('portrait_job') and not have.get('relay'):
             raise HTTPException(400, '没配 relay（中转站）出不了立绘 —— 到「凭据」配，或上传一张立绘')
         for a in actions:
             prov = (body.get('options', {}).get(a, {}) or {}).get('provider', 'dashscope')
             alias = {'dashscope': 'wan', 'zhipu': 'glm'}.get(prov, prov)
             if not have.get(alias):
                 raise HTTPException(400, f'{known[a].get("label", a)} 选的 {prov} 没配 key')
+    portrait_upload = body.get('portrait_upload')
+    if body.get('portrait_job'):                          # ⚑ 「满意，用这张立绘出动作」：⚑ 直接引用某个任务的立绘
+        portrait_upload = str(_safe(body['portrait_job'], body.get('portrait_path') or 'out/01_portrait.png'))
     spec = {'mode': mode, 'prompt': body.get('prompt', ''), 'style': body.get('style', ''),
             'actions': actions, 'options': body.get('options', {}),
             'presets': body.get('presets', []), 'custom_actions': body.get('custom_actions') or {},
-            'combo': body.get('combo') or [], 'portrait_upload': body.get('portrait_upload')}
+            'combo': body.get('combo') or [], 'portrait_upload': portrait_upload}
     pf = body.get('portrait_from')                       # ⚑ 图生图：{job, path} 或 {upload}
     if pf and mode == 'generate':
         if pf.get('job'):

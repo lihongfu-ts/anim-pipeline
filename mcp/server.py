@@ -112,8 +112,10 @@ def gen_video(action: str, motion: str, liubai: str = 'liubai.png', provider: st
     pf = f'prompt_{action}.txt'
     (root() / pf).write_text(pipeline.build_prompt(action if action in pipeline.ACTIONS else 'attack', '', motion), encoding='utf-8')
     (root() / 'work' / 'anim').mkdir(parents=True, exist_ok=True)
-    code, out = sh([TOOLS / 'gen_video.py', f'--img={liubai}', f'--last={liubai}', f'--tag={action}', f'--promptfile={pf}',
-                    f'--provider={provider}', f'--model={model}', f'--res={res}', f'--dur={int(dur)}'], timeout=1800)
+    use_last = pipeline.VIDEO_PROVIDERS.get(provider, {}).get('last', True)     # ⚑ 智谱不给首尾帧（给了就静止）
+    code, out = sh([TOOLS / 'gen_video.py', f'--img={liubai}'] + ([f'--last={liubai}'] if use_last else []) +
+                   [f'--tag={action}', f'--promptfile={pf}', f'--provider={provider}', f'--model={model}', f'--res={res}', f'--dur={int(dur)}'],
+                   timeout=1800)
     mp4 = f'work/anim/{action}.mp4'
     spent = 'id 已落盘' in out
     if code != 0 or not (root() / mp4).exists():

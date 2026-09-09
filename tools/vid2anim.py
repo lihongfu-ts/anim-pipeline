@@ -251,10 +251,17 @@ def pick(fs, n, mode, win, fps):
             if v < best[0]:
                 best = (v, i, j)
         if best[1] == best[2]:                     # ⚠ 一个合法起点都没有 ⇒ ⛔ 别静默产出同帧
+            # ⚠⚠⚠ 2026-09-09 真实万相片踩到：⚑ 视频里没有周期动作（在挥剑不是走路）⇒ ⚑ 原来这里只打一行警告，
+            #   ⛔ 然后照样切出 4 张**同一帧**的图集（动量/形变全 0）—— ⚑ 正是"静默失败"。
+            #   ⇒ ✅ 退回：⚑ 在活跃段上均匀取 n 帧（⚑ 至少让人看见视频里到底演了什么），⚑ 并把原因喊出来。
             print(f'  ⚠⚠ ⛔ 周期 {period} 帧在窗口内放不下，没有合法循环段')
-        print(f'  ⚑ 循环点 f{best[1]+1:03d}→f{best[2]+1:03d}  '
-              f'({(best[2]-best[1])/fps:.2f}s)  首尾差 {best[0]:.2f}')
-        sel = list(np.linspace(best[1], best[2], n + 1).round().astype(int)[:n])   # ⛔ 不含末帧（它≈首帧）
+            print(f'  ⇒ ⚑ 退回：活跃段 f{act[0]+1:03d}~f{act[-1]+1:03d} 均匀取 {n} 帧（⚠ 这不是循环 —— '
+                  f'多半是视频里没有周期动作，⚑ 看联络表确认后换提示词重出）')
+            sel = list(np.linspace(act[0], act[-1], n).round().astype(int))
+        else:
+            print(f'  ⚑ 循环点 f{best[1]+1:03d}→f{best[2]+1:03d}  '
+                  f'({(best[2]-best[1])/fps:.2f}s)  首尾差 {best[0]:.2f}')
+            sel = list(np.linspace(best[1], best[2], n + 1).round().astype(int)[:n])   # ⛔ 不含末帧（它≈首帧）
 
     return [fs[i] for i in sel]
 

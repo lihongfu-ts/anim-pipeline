@@ -105,7 +105,9 @@ def main():
     try:
         subprocess.run(['ffmpeg', '-v', 'error', '-i', mp4, os.path.join(tmp, 'f%04d.png')], check=True)
         fs = sorted(os.path.join(tmp, f) for f in os.listdir(tmp))
-        m = [measure(f) for f in fs]
+        # ⚑⚑ 只量采样帧 —— ⚠ 原来每帧都抠图，⚑ 161 帧的真实视频跑了 371s（⚑ cutout 每帧 ~2s），
+        #   ⛔ 而 --every 只管打印不管计算。⚑ 首帧必量（⚑ 基准），⚑ 其余按 every 取。
+        m = [measure(f) if i % every == 0 else None for i, f in enumerate(fs)]
         base = next(v for v in m if v)                       # ⚑ 首帧当基准（⚑ 首尾帧钉死时它就是站姿）
         bf, bx, bh = base
         print(f'⚑ {os.path.basename(mp4)}  共 {len(fs)} 帧   基准(f001)：脚底 y={bf} 躯干 x={bx} 身高={bh}px')

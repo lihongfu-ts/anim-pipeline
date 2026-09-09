@@ -101,9 +101,11 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     </div>
     <div class="row" style="margin-top:10px">
       <label style="margin:0" id="confirmWrap" hidden><input type="checkbox" id="confirm"> 我确认要花这笔钱</label>
-      <button class="btn" id="go">开始</button>
+      <button class="btn ghost" id="goPortrait" title="两段式：先出一张立绘看看，满意了再在任务卡上点「用这张立绘出动作」">① 只出立绘（¥0.15）</button>
+      <button class="btn" id="go">② 开始（出动作）</button>
       <span class="dim" id="goMsg"></span>
     </div>
+    <div class="note" id="portraitJobNote"></div>
   </div>
 </div>
 <div>
@@ -332,24 +334,27 @@ function vprice(p,r,d,m){if(p==='zhipu'){const z=D.prices.zhipu||{};return z[m]!
 function estimate(){
   const gen=$('input[name=mode]:checked').value==='generate';$('#confirmWrap').hidden=!gen;
   const o=readOpts();let rows=[],total=0;
-  const port=gen&&!portraitPath?D.prices.portrait:0;rows.push(['角色（出立绘）',port]);total+=port;
+  const port=gen&&!portraitPath&&!portraitJob?D.prices.portrait:0;rows.push(['角色（出立绘）',port]);total+=port;
   $$('.act').forEach(el=>{const k=el.dataset.a,on=el.querySelector('.aon').checked;const p=on&&gen?vprice(o[k].provider,o[k].res,o[k].dur,o[k].model):0;
     const name=(el.querySelector('.lbl')&&el.querySelector('.lbl').value.trim())||ACTS[k].label||k;
     el.querySelector('[data-cost]').textContent=on?(gen?(p?`¥${p.toFixed(2)}`:'免费'):'¥0'):'';if(on){rows.push([name+`（${o[k].provider} ${o[k].res}/${o[k].dur}s）`,p]);total+=p}});
   $('#costTable').innerHTML=rows.map(([n,p])=>`<tr><td>${n}</td><td class="cost" style="text-align:right">¥${p.toFixed(2)}</td></tr>`).join('');
   $('#costTotal').textContent='¥'+total.toFixed(2);
 }
-$('#go').onclick=async()=>{
-  const mode=$('input[name=mode]:checked').value;
-  const actions=$$('.act').filter(el=>el.querySelector('.aon').checked).map(el=>el.dataset.a);
+let portraitJob=null;            // ⚑ 「满意，用这张立绘出动作」选中的任务 id
+async function submitJob(actions){
+  const m=$('input[name=mode]:checked').value;
   $('#goMsg').textContent='';
   try{
-    const st=await api('/api/jobs',{method:'POST',body:{mode,prompt:$('#prompt').value,style:$('#style').value,actions,options:readOpts(),
+    const st=await api('/api/jobs',{method:'POST',body:{mode:m,prompt:$('#prompt').value,style:$('#style').value,actions,options:readOpts(),
       custom_actions:readCustom(),combo:COMBO.filter(k=>actions.includes(k)),confirm:$('#confirm').checked,portrait_upload:portraitPath,
-      portrait_from:portraitFrom(),portrait_edit:$('#editPrompt').value}});
+      portrait_job:portraitJob,portrait_from:portraitFrom(),portrait_edit:$('#editPrompt').value}});
     selJob=st.id;logOff=0;$('#log').textContent='';await pollJobs();
   }catch(e){$('#goMsg').textContent=e.message;$('#goMsg').className='bad'}
-};
+}
+$('#go').onclick=()=>submitJob($$('.act').filter(el=>el.querySelector('.aon').checked).map(el=>el.dataset.a));
+$('#goPortrait').onclick=()=>{if($('input[name=mode]:checked').value!=='generate'){$('#goMsg').textContent='只出立绘要选「真实生成」';return}portraitJob=null;portraitPath=null;submitJob([])};
+function usePortraitOf(id){portraitJob=id;portraitPath=null;$('#portraitJobNote').innerHTML=`✅ 将使用任务 <b>${id}</b> 的立绘出动作（不再花出图的钱）。<a href="#" id="clearPJ">取消</a>`;$('#clearPJ').onclick=e=>{e.preventDefault();portraitJob=null;$('#portraitJobNote').textContent='';estimate()};estimate();window.scrollTo({top:0,behavior:'smooth'})}
 
 // ───────── 任务列表 / 日志
 async function pollJobs(){
@@ -363,9 +368,11 @@ async function pollJobs(){
       <div style="font-size:12px;margin-top:4px">实花/预估：<span class="cost">¥${j.cost.spent.toFixed(2)}</span><span class="dim">/${j.cost.est.toFixed(2)}</span> &nbsp; ${by}</div>
       <div class="steps">${(j.steps||[]).map(s=>`<span class="step ${s.status}">${s.label}</span>`).join('')}</div>
       ${j.error?`<div class="bad" style="font-size:12px;margin-top:4px">${j.error}</div>`:''}
-      <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost prev" ${j.status==='done'?'':'disabled'}>预览</button><button class="btn sm ghost del">删除</button></div>
+      ${j.artifacts&&j.artifacts.portrait&&j.status==='done'?`<div class="row" style="margin-top:6px;gap:8px"><img src="/api/jobs/${j.id}/file/${j.artifacts.portrait}" style="height:96px;border:1px solid var(--line);border-radius:4px;background:#888"><button class="btn sm usep">满意，用这张立绘出动作</button></div>`:''}
+      <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost prev" ${j.status==='done'&&j.actions&&j.actions.length?'':'disabled'}>预览</button><button class="btn sm ghost del">删除</button></div>
     </div>`}).join(''):'<span class="dim">还没有任务</span>';
-  $$('.job').forEach(el=>{el.onclick=e=>{if(e.target.tagName==='BUTTON')return;selJob=el.dataset.id;logOff=0;$('#log').textContent='';pollJobs()};
+  $$('.job').forEach(el=>{el.onclick=e=>{if(e.target.tagName==='BUTTON'||e.target.tagName==='IMG')return;selJob=el.dataset.id;logOff=0;$('#log').textContent='';pollJobs()};
+    const up=el.querySelector('.usep');if(up)up.onclick=()=>usePortraitOf(el.dataset.id);
     el.querySelector('.prev').onclick=()=>{openJob(el.dataset.id)};
     el.querySelector('.del').onclick=async()=>{if(confirm('删除任务 '+el.dataset.id+'？'))await api('/api/jobs/'+el.dataset.id,{method:'DELETE'});pollJobs()}});
   if(selJob){const r=await api(`/api/jobs/${selJob}/log?offset=${logOff}`);if(r.text){$('#log').textContent+=r.text;$('#log').scrollTop=1e9}logOff=r.offset;$('#logJob').textContent=selJob}
