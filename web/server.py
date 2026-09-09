@@ -111,6 +111,11 @@ def set_cred(body: dict):
         ent['model'] = body['model'].strip()
     if body.get('vision_model'):
         ent['vision_model'] = body['vision_model'].strip()
+    if body.get('price') not in (None, ''):                 # ⚑ 买了包按包价记账（如智谱 ¥10/100 次 ⇒ 0.10）
+        try:
+            ent['price'] = float(body['price'])
+        except (TypeError, ValueError):
+            raise HTTPException(400, 'price 要是数字（每次多少元）')
     d.setdefault('providers', {})[name] = ent
     _creds.USER_CFG.parent.mkdir(parents=True, exist_ok=True) if hasattr(_creds.USER_CFG, 'parent') else \
         os.makedirs(os.path.dirname(_creds.USER_CFG), exist_ok=True)
