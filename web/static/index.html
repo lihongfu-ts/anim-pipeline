@@ -34,6 +34,10 @@ table{border-collapse:collapse;width:100%}td,th{padding:6px 8px;border-bottom:1p
 .chips{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:13px;background:#0c0e12;display:flex;gap:6px;align-items:center;user-select:none}
 .chip:hover{border-color:var(--acc2)}.chip.on{border-color:var(--acc);background:#10192a}.chip .p{color:var(--warn);font-family:var(--mono);font-size:12px}.chip .gear{color:var(--dim);font-size:12px;padding-left:4px}.chip .gear:hover{color:var(--fg)}
 .opts{display:none;background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}.opts.on{display:block}
+.chip .n{color:var(--acc);font-family:var(--mono);font-size:12px}
+/* 提示词审阅 */
+.rv{background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}.rv textarea{min-height:76px;font-size:13px;margin-top:6px;line-height:1.6}
+.rv pre{white-space:pre-wrap;font:12px/1.55 var(--mono);color:var(--dim);margin:6px 0 0;background:#0a0c10;padding:8px 10px;border-radius:6px}
 details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim);font-size:12px;list-style:none}details.more summary::before{content:'▸ '}details.more[open] summary::before{content:'▾ '}
 .pres{display:flex;gap:18px;align-items:flex-start;padding:14px;border:1px solid var(--line);border-radius:12px;background:#0c0e12;margin-top:14px}
 .pres img{width:220px;height:220px;object-fit:contain;background:#888;border-radius:8px}.pres .info{flex:1}
@@ -76,6 +80,7 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim)
     <button data-tab="agent">Agent</button>
   </nav>
   <span style="flex:1"></span>
+  <button class="btn sm" id="restartBtn" hidden title="代码更新了，后端还是旧进程 —— 点一下换新（有任务在跑时会拒绝）" style="background:var(--warn)">↻ 重启服务</button>
   <span class="sw" id="demoSw" title="用合成素材走一遍后半段，不调任何 API、不花钱"><i></i>试运行（不花钱）</span>
 </header>
 <main>
@@ -86,6 +91,7 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim)
   <!-- 首次：先配齐 -->
   <div class="card" id="setupGate" hidden>
     <h3>先花两分钟把配置填好，之后就不用再碰</h3>
+    <div id="gateEnv"></div>
     <div id="gateProvs"></div>
     <div class="row between" style="margin-top:14px"><span class="note" id="gateMsg"></span><button class="btn" id="gateDone" disabled>开始制作 →</button></div>
   </div>
@@ -94,6 +100,7 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim)
     <textarea id="prompt" placeholder="一句话描述角色，例如：国风水墨画风格的剑客，身穿长衫，手持一柄长剑"></textarea>
     <div class="row" style="margin-top:10px">
       <input type="text" id="style" class="grow" value="Q 版 3.5 头身，厚涂风格，颜色饱和，轮廓清晰。" title="画风">
+      <select id="view" style="width:auto" title="游戏视角（决定立绘镜头和视频的锁镜头句；两种都是 1 个朝向，引擎左右镜像）"></select>
       <select id="weaponPose" style="width:auto" title="持武器姿势">
         <option value="side">武器垂于身侧（跑步/走路自然）</option>
         <option value="across">武器横在身前（攻击最稳）</option>
@@ -103,13 +110,22 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim)
     <div class="row between" style="margin-top:12px">
       <div class="row">
         <button class="btn big" id="btnPortrait">出立绘 <span class="cost" id="portraitCost"></span></button>
-        <details class="more"><summary>不出图，用已有立绘</summary>
-          <div class="row" style="margin-top:8px">
-            <input type="file" id="portraitFile" accept="image/png,image/jpeg" style="width:auto">
-            <select id="jobPortraitSel" style="width:auto"><option value="">— 从作品里选 —</option></select>
-          </div></details>
+        <button class="btn big ghost" id="btnHave">不出图，用已有立绘</button>
       </div>
       <span class="dim small" id="portraitMsg"></span>
+    </div>
+    <div class="row" id="haveRow" hidden style="margin-top:8px">
+      <input type="file" id="portraitFile" accept="image/png,image/jpeg" style="width:auto">
+      <select id="jobPortraitSel" style="width:auto"><option value="">— 从作品里选 —</option></select>
+      <span class="note" style="margin:0">要求灰底、全身、朝左</span>
+    </div>
+
+    <div class="card" id="ppCard" hidden style="margin-top:12px">
+      <div class="row between"><h3 style="margin:0" id="ppTitle">立绘描述 —— 大模型按你的一句话写好了，看一眼再出图</h3><span class="dim small" id="ppMsg"></span></div>
+      <textarea id="ppDesc" style="min-height:64px;font-size:13px;line-height:1.6"></textarea>
+      <div class="row" style="margin-top:6px"><input type="text" id="ppHint" class="grow" placeholder="不满意？说一句怎么改（例：刀改成宽背大刀、加个斗笠），再让它重写"><button class="btn sm ghost" id="ppRewrite">重写</button></div>
+      <details class="more"><summary>完整提示词（发给图像模型的原文，含视角 / 持武器姿势 / 灰底约束）</summary><pre id="ppFull" style="white-space:pre-wrap;font:12px/1.55 var(--mono);color:var(--dim);margin:6px 0 0;background:#0a0c10;padding:8px 10px;border-radius:6px"></pre></details>
+      <div class="row between" style="margin-top:10px"><button class="btn sm ghost" id="ppCancel">取消</button><button class="btn" id="ppGo">确认出图 <span class="cost" id="ppCost"></span></button></div>
     </div>
 
     <div class="pres" id="pres" hidden>
@@ -134,8 +150,18 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim)
       <div class="chips" id="acts" style="margin-top:10px"></div>
       <div id="actOpts"></div>
       <div class="row between" style="margin-top:14px">
-        <span class="dim small">每个动作一发视频；一次性动作由视觉模型看联络表挑帧，崩了就停。</span>
-        <span class="row"><span class="dim small" id="goMsg"></span><button class="btn big" id="go">出动作 <span class="cost" id="costTotal"></span></button></span>
+        <span class="dim small">每个动作一发视频。出片前大模型先按这张立绘写好提示词给你看；出完视觉模型看联络表质检，判废就停。</span>
+        <span class="row"><span class="dim small" id="goMsg"></span><button class="btn big" id="go">写提示词 → 出动作 <span class="cost" id="costTotal"></span></button></span>
+      </div>
+    </div>
+
+    <div class="card" id="rvCard" hidden>
+      <div class="row between"><h3 style="margin:0">提示词 —— 看一眼，想改就改，再出片</h3><span class="dim small" id="rvMsg"></span></div>
+      <div class="note" id="rvChar"></div>
+      <div id="rvList"></div>
+      <div class="row between" style="margin-top:14px">
+        <button class="btn ghost" id="rvBack">← 返回改动作</button>
+        <span class="row"><span class="dim small" id="rvGoMsg"></span><button class="btn big" id="rvGo">确认出片 <span class="cost" id="rvCost"></span></button></span>
       </div>
     </div>
 
@@ -193,12 +219,14 @@ details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim)
 
 <!-- ═══════════════════════════ 设置 -->
 <section class="tab" id="tab-set">
+<div class="card"><h3>环境</h3><div id="setEnv"></div>
+  <div class="note" style="margin-top:8px">第一次装：双击仓库里的 <code>安装.bat</code>（Python 依赖 + ffmpeg 一起装），以后双击 <code>启动.bat</code>。ffmpeg 也可以在这里点按钮装，装完不用重启。</div></div>
 <div class="card"><h3>模型与 key（配一次，之后默认调用）</h3><div id="setProvs"></div>
   <div class="note" style="margin-top:12px">写到本机 <code id="cFile"></code>，不进仓库、不回显完整 key；服务只监听 127.0.0.1。dsh 插件 / MCP / 命令行读的是同一份。</div></div>
 <div class="card"><h3>怎么拿 key</h3>
   <div class="small"><b>万相（必需）</b>：<a href="https://platform.qianwenai.com/try-ai?scene=video" target="_blank">platform.qianwenai.com/try-ai?scene=video</a> → 万相 3.0-视频生成 → 右上角「获取 API Key」。480P/2s ¥0.40。</div>
   <div class="small" style="margin-top:6px"><b>大模型（必需）</b>：<a href="https://platform.deepseek.com" target="_blank">DeepSeek</a>，模型 <code>deepseek-v4-pro</code>（实测能看图挑帧；v4-flash 不能）。写提示词 + 看联络表 + agent 大脑都用它。</div>
-  <div class="small" style="margin-top:6px"><b>中转站（出立绘要）</b>：推荐 <a href="https://jizhiapi.site/register?aff=9GKRGQJNL4R4" target="_blank">jizhiapi.site</a>（邀请码 <code>9GKRGQJNL4R4</code>），支持 <code>gpt-image-2.5</code>，**¥0.05/张**；baseUrl 填 <code>https://jizhiapi.site/v1</code>，model 填 <code>gpt-image-2.5</code>，每次价格填 0.05。其它 OpenAI 兼容站也行，保存后「检查」能列出它的图像模型。已有立绘可不配。</div>
+  <div class="small" style="margin-top:6px"><b>中转站（出立绘要）</b>：<b class="warn">关键：必须支持 <code>gpt-image-2.5</code></b>（出立绘和图生图改版都靠它，别的图像模型没实测过）。推荐 <a href="https://jizhiapi.site/register?aff=9GKRGQJNL4R4" target="_blank">jizhiapi.site</a>（邀请码 <code>9GKRGQJNL4R4</code>），<b>¥0.05/张</b>；baseUrl 填 <code>https://jizhiapi.site/v1</code>，model 填 <code>gpt-image-2.5</code>，每次价格填 0.05。其它 OpenAI 兼容站也行，保存后「检查」能列出它的图像模型 —— 列表里没有 gpt-image-2.5 就换一家。已有立绘可不配。</div>
   <div class="small" style="margin-top:6px"><b>智谱（可选）</b>：CogVideoX-3 会推镜头、转正面，只适合探静止型；买了包填包价。</div></div>
 </section>
 
@@ -236,7 +264,7 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const api=async(u,o={})=>{const r=await fetch(u,{headers:o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{},...o,body:o.body&&!(o.body instanceof FormData)?JSON.stringify(o.body):o.body});const t=await r.text();let j;try{j=JSON.parse(t)}catch{j={detail:t}}if(!r.ok)throw new Error(j.detail||r.statusText);return j};
 const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 let D=null, JOBSTATE=[], AGRUNS=[], demo=false;
-const W={portraitJob:null,portraitPath:null,pJob:null,aJob:null,logJob:null,logOff:0};
+const W={portraitJob:null,portraitJobPath:null,portraitPath:null,pJob:null,aJob:null,logJob:null,logOff:0};   // ⚑ portraitJobPath：⚑ 上传型作品的立绘是 portrait.png 不是 out/01_portrait.png，⛔ 不带路径后端会 404
 
 function showTab(t){$$('nav button').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));$$('.tab').forEach(s=>s.classList.toggle('on',s.id==='tab-'+t))}
 $$('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
@@ -247,7 +275,7 @@ function applyMode(){$('#btnPortrait').disabled=demo;$('#portraitMsg').textConte
 const PROVS=[
   {id:'wan',title:'万相',why:'出片定稿，必需',need:true,fields:[['apiKey','apiKey（sk-ws- 开头）','password']],defaults:{}},
   {id:'llm',title:'大模型',why:'写提示词 + 看图挑帧 + agent 大脑，必需',need:true,fields:[['apiKey','apiKey','password'],['baseUrl','baseUrl','text'],['model','模型（要能看图）','text']],defaults:{baseUrl:'https://api.deepseek.com',model:'deepseek-v4-pro'}},
-  {id:'relay',title:'中转站',why:'出立绘 / 图生图；已有立绘可不配',need:false,fields:[['apiKey','apiKey','password'],['baseUrl','baseUrl（…/v1）','text'],['model','图像模型','text'],['price','每张价格（元）','number']],defaults:{baseUrl:'https://jizhiapi.site/v1',model:'gpt-image-2.5',price:'0.05'}},
+  {id:'relay',title:'中转站',why:'出立绘 / 图生图；必须支持 gpt-image-2.5；已有立绘可不配',need:false,fields:[['apiKey','apiKey','password'],['baseUrl','baseUrl（…/v1）','text'],['model','图像模型','text'],['price','每张价格（元）','number']],defaults:{baseUrl:'https://jizhiapi.site/v1',model:'gpt-image-2.5',price:'0.05'}},
   {id:'glm',title:'智谱',why:'CogVideoX-3 抽片，可选',need:false,fields:[['apiKey','apiKey','password'],['model','视频模型','text'],['price','每次价格（包价）','number']],defaults:{model:'cogvideox-3'}},
   {id:'ark',title:'火山 seedance',why:'免费额度抽姿势，可选',need:false,fields:[['apiKey','apiKey','password']],defaults:{}},
 ];
@@ -266,85 +294,172 @@ function renderProvs(){
       if(id==='llm'&&b.model)b.vision_model=b.model;
       try{await api('/api/creds',{method:'POST',body:b});out.innerHTML='<span class="ok">已保存，检查中…</span>';await loadDoctor();await probe(id,out)}catch(e){out.innerHTML=`<span class="bad">${esc(e.message)}</span>`}};
     el.querySelector('.pr').onclick=()=>probe(id,out)});
-  const ok=!!(D.creds.wan&&D.creds.llm);$('#gateDone').disabled=!ok;$('#gateMsg').textContent=ok?'万相和大模型都在了，可以开始。中转站没配的话只能用已有立绘。':'至少要配好万相和大模型。';
+  renderEnv();
+  const miss=[!D.ffmpeg&&'ffmpeg',!D.creds.wan&&'万相 key',!D.creds.llm&&'大模型 key'].filter(Boolean);const ok=!miss.length;
+  $('#gateDone').disabled=!ok;$('#gateMsg').textContent=ok?'环境和 key 都齐了，可以开始。中转站没配的话只能用已有立绘。':'还差：'+miss.join('、');
 }
+// ───────── 环境（ffmpeg / Python 依赖）＋ 一键装 ffmpeg（⚑ 用户 2026-09-09）
+function envHtml(){const ff=D.ffmpeg;
+  return `<div class="prov"><div class="nm"><b>ffmpeg</b><span>视频抽帧 / 切图集，必需（试运行也要）</span><div class="out">${ff?`<span class="ok">✅ 已安装</span> <span class="dim mono small">${esc(D.ffmpeg_path||'')}</span>`:'<span class="bad">未安装（必需）</span>'}</div></div>
+    <div><div class="small dim">Python ${esc(D.python)} · numpy ${D.numpy?'✅':'❌'} · Pillow ${D.pillow?'✅':'❌'}${(!D.numpy||!D.pillow)?' —— 缺的用 <code>安装.bat</code> 或 <code>pip install -r requirements.txt</code>':''}</div><div class="out mono small" data-instlog style="white-space:pre-wrap;max-height:130px;overflow:auto"></div></div>
+    <div class="row" style="flex-direction:column;align-items:stretch">${ff?'':'<button class="btn sm inst">一键安装 ffmpeg</button>'}</div></div>`}
+function renderEnv(){for(const id of ['#gateEnv','#setEnv']){const el=$(id);if(!el)continue;el.innerHTML=envHtml();const b=el.querySelector('.inst');if(b)b.onclick=installFfmpeg}}
+async function installFfmpeg(){$$('.inst').forEach(b=>{b.disabled=true;b.textContent='安装中…'});try{await api('/api/install/ffmpeg',{method:'POST'})}catch(e){$$('[data-instlog]').forEach(el=>el.textContent='✗ '+e.message);return}pollInstall()}
+async function pollInstall(){let r;try{r=await api('/api/install/ffmpeg')}catch{return setTimeout(pollInstall,2000)}
+  $$('[data-instlog]').forEach(el=>{el.textContent=(r.log||[]).slice(-8).join('\n');el.scrollTop=1e9});
+  if(r.running)return setTimeout(pollInstall,1500);
+  if(r.ok){await loadDoctor();gate()}
+  else $$('.inst').forEach(b=>{b.disabled=false;b.textContent='重试安装 ffmpeg'})}
 async function probe(id,out){out.innerHTML='检查中…';try{const r=await api(`/api/creds/${id}/probe`,{method:'POST',body:{}});
   const models=r.models?.length?`<div class="dim">模型：${r.models.slice(0,12).map(esc).join(' · ')}${r.models.length>12?' …':''}</div>`:'';
   const vis=r.vision===true?'<div class="ok">✅ 能看图（可以挑帧）</div>':(r.vision===false?'<div class="warn">⛔ 这个模型不认图，挑帧会退回自动</div>':'');
   out.innerHTML=`<div class="${r.ok?'ok':'bad'}">${esc(r.msg)}</div>${vis}${(r.notes||[]).map(n=>`<div class="warn">${esc(n)}</div>`).join('')}${r.detail?`<div class="dim mono">${esc(typeof r.detail==='string'?r.detail:JSON.stringify(r.detail)).slice(0,300)}</div>`:''}${models}`;
   // ⚑ 设置页里同一家可能有两处（首次引导 + 设置），⚑ 同步一下
   $$(`.prov[data-p="${id}"] [data-out]`).forEach(o=>{if(o!==out)o.innerHTML=out.innerHTML})}catch(e){out.innerHTML=`<span class="bad">${esc(e.message)}</span>`}}
-function gate(){const ok=!!(D.creds.wan&&D.creds.llm);$('#setupGate').hidden=ok;$('#flow').hidden=!ok}
+function gate(){const ok=!!(D.creds.wan&&D.creds.llm&&D.ffmpeg);$('#setupGate').hidden=ok;$('#flow').hidden=!ok}
 $('#gateDone').onclick=gate;
 
+// ───────── 重启服务（⚑ 代码比进程新 ⇒ 右上角亮按钮；⚑ 点了：POST /api/restart → 等 started 变了 → 刷新）
+function showStale(d){const s=!!(d.stale||!d.ui_actions);$('#restartBtn').hidden=!s;
+  if(s)$('#goMsg').innerHTML='<span class="warn">服务端是旧进程 —— 点右上角「↻ 重启服务」</span>';else if($('#goMsg').textContent.includes('旧进程'))$('#goMsg').textContent=''}
+$('#restartBtn').onclick=async()=>{const b=$('#restartBtn'),old=D.started;b.disabled=true;b.textContent='重启中…';
+  try{await api('/api/restart',{method:'POST'})}
+  catch(e){b.disabled=false;b.textContent='↻ 重启服务';$('#goMsg').innerHTML=/Not Found/i.test(e.message)?'<span class="warn">这个旧进程还没有重启接口，这一次得手动：到它的黑窗口按 Ctrl+C，再运行 <code>python web/server.py</code>；之后就能点按钮了</span>':'<span class="bad">'+esc(e.message)+'</span>';return}
+  const t0=Date.now();(async function wait(){try{const d=await api('/api/doctor');if(d.started&&d.started!==old){location.reload();return}}catch{}
+    if(Date.now()-t0<30000)setTimeout(wait,700);else{b.textContent='没起来？看 web/jobs/_server.log';b.disabled=false}})()};
+setInterval(async()=>{if(!D||$('#restartBtn').disabled)return;try{const d=await api('/api/doctor');D.stale=d.stale;showStale(d)}catch{}},15000);   // ⚑ 我在改代码时，页面自己会发现
 // ───────── doctor
-async function loadDoctor(){D=await api('/api/doctor');$('#cFile').textContent=D.creds_file;$('#portraitCost').textContent='¥'+D.prices.portrait.toFixed(2);$('#editCost').textContent='¥'+D.prices.portrait.toFixed(2);renderProvs();if(!ACTS||!Object.keys(ACTS).length)buildActs();estimate()}
+async function loadDoctor(){D=await api('/api/doctor');
+  if(!D.ui_actions){   // ⚑ 后端是旧进程（网页从磁盘读、后端没重启）⇒ 兜底别让页面死掉，并明说
+    D.ui_actions=Object.keys(D.actions);D.attack_chain=['attack'];D.prompt_head=D.prompt_head||'';D.prompt_tail=D.prompt_tail||''}
+  showStale(D);
+  {const s=$('#view');if(!s.options.length)s.innerHTML=Object.entries(D.views||{side:{label:'横版（侧视）'}}).map(([k,v])=>`<option value="${k}">${esc(v.label)}</option>`).join('')}
+  $('#cFile').textContent=D.creds_file;$('#portraitCost').textContent='¥'+D.prices.portrait.toFixed(2);$('#editCost').textContent='¥'+D.prices.portrait.toFixed(2);renderProvs();if(!ACTS||!Object.keys(ACTS).length)buildActs();estimate()}
 
 // ───────── 立绘
 function portraitReady(){return !!(W.portraitJob||W.portraitPath)}
 function showPres(src,status){$('#pres').hidden=false;$('#presImg').src=src;$('#presStatus').innerHTML=status;$('#presProg').innerHTML='';$('#btnPortraitOk').hidden=false;$('#btnPortraitRedo').hidden=true;$('#btnPortraitEdit').hidden=!W.portraitJob;$('#editBox').hidden=true}
-$('#portraitFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const fd=new FormData();fd.append('file',f);W.portraitPath=(await api('/api/upload/portrait',{method:'POST',body:fd})).path;W.portraitJob=null;showPres(URL.createObjectURL(f),'已上传的立绘 —— 要求灰底、全身、朝左');acceptPortrait()};
-$('#jobPortraitSel').onchange=()=>{const id=$('#jobPortraitSel').value;if(!id)return;const j=JOBSTATE.find(x=>x.id===id);W.portraitJob=id;W.portraitPath=null;showPres(`/api/jobs/${id}/file/${j.artifacts.portrait}`,`作品 ${id} 的立绘`);acceptPortrait()};
+$('#btnHave').onclick=()=>{const r=$('#haveRow');r.hidden=!r.hidden};
+$('#portraitFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const fd=new FormData();fd.append('file',f);W.portraitPath=(await api('/api/upload/portrait',{method:'POST',body:fd})).path;W.portraitJob=W.portraitJobPath=null;showPres(URL.createObjectURL(f),'已上传的立绘 —— 要求灰底、全身、朝左');acceptPortrait()};
+$('#jobPortraitSel').onchange=()=>{const id=$('#jobPortraitSel').value;if(!id)return;const j=JOBSTATE.find(x=>x.id===id);W.portraitJob=id;W.portraitJobPath=j.artifacts.portrait;W.portraitPath=null;showPres(`/api/jobs/${id}/file/${j.artifacts.portrait}`,`作品 ${id} 的立绘`);acceptPortrait()};
 function autoOpts(){return {prompt_llm:!!D.creds.llm,prompt_llm_provider:'llm',vlm_pick:!!D.creds.llm,stop_on_collapse:true,weapon_pose:$('#weaponPose').value}}
 async function startPortrait(extra){
   if(!demo&&!D.creds.relay){$('#portraitMsg').textContent='没配中转站，出不了立绘 —— 去「设置」配，或用已有立绘';return}
   if(!extra&&!$('#prompt').value.trim()){$('#portraitMsg').textContent='先写一句话';$('#prompt').focus();return}
-  $('#portraitMsg').textContent='';W.portraitJob=null;W.portraitPath=null;
-  try{const st=await api('/api/jobs',{method:'POST',body:{mode:'generate',prompt:$('#prompt').value,style:$('#style').value,actions:[],confirm:true,options:autoOpts(),...(extra||{})}});
+  $('#portraitMsg').textContent='';W.portraitJob=W.portraitJobPath=W.portraitPath=null;
+  try{const st=await api('/api/jobs',{method:'POST',body:{mode:'generate',prompt:$('#prompt').value,style:$('#style').value,view:$('#view').value,actions:[],confirm:true,options:autoOpts(),...(extra||{})}});
     W.pJob=st.id;$('#pres').hidden=false;$('#presImg').removeAttribute('src');$('#presStatus').textContent='出图中…（约 40 秒）';$('#presProg').innerHTML='';
     $('#btnPortraitOk').hidden=$('#btnPortraitRedo').hidden=$('#btnPortraitEdit').hidden=true;$('#editBox').hidden=true;$('#btnPortrait').disabled=true;pollJobs()}
   catch(e){$('#portraitMsg').textContent=e.message;$('#btnPortrait').disabled=false}}
-$('#btnPortrait').onclick=()=>startPortrait();
-$('#btnPortraitRedo').onclick=()=>startPortrait();
+// ⚑⚑ 出立绘 ＝ 两步：① 大模型把一句话写成外观描述 → 审阅框；② 确认 → 才花图钱（⚑ 用户 2026-09-09：出图的提示词也要优化、先看到）
+const PP={desc:'',source:'',mode:'new',base:null};   // ⚑ mode：new＝一句话出图；edit＝基于作品立绘改一版（图生图）
+const ppFull=()=>PP.mode==='edit'?((PP.desc||'').trim()+'\n'+(D.portrait_edit_suffix||''))
+  :(D.portrait_tmpl||'').replace('{desc}',(PP.desc||'').replace(/[。\s]+$/,'')).replace('{style}',$('#style').value.trim()||D.default_style||'').replace('{camera}',D.views?.[$('#view').value]?.portrait||'').replace('{weapon}',D.weapon_pose?.[$('#weaponPose').value]||'');
+function renderPP(){$('#ppTitle').textContent=PP.mode==='edit'?'改图指令 —— 大模型按你写的「改什么」整理好了，看一眼再出改版':'立绘描述 —— 大模型按你的一句话写好了，看一眼再出图';
+  $('#ppGo').firstChild.textContent=PP.mode==='edit'?'确认出改版 ':'确认出图 ';$('#ppDesc').value=PP.desc;$('#ppFull').textContent=ppFull();$('#ppCost').textContent='¥'+D.prices.portrait.toFixed(2);$('#ppCard').hidden=false;$('#ppCard').scrollIntoView({behavior:'smooth',block:'nearest'})}
+async function askPP(hint){return api('/api/prompt/portrait',{method:'POST',body:{prompt:PP.mode==='edit'?$('#editPrompt').value:$('#prompt').value,edit:PP.mode==='edit',style:$('#style').value,view:$('#view').value,weapon_pose:$('#weaponPose').value,hint:hint||'',base:hint?PP.desc:''}})}
+async function reviewPortrait(mode){PP.mode=mode||'new';
+  if(!demo&&!D.creds.relay){$('#portraitMsg').textContent='没配中转站，出不了立绘 —— 去「设置」配，或用已有立绘';return}
+  if(PP.mode==='edit'){PP.base={job:W.portraitJob,path:W.portraitJobPath||'out/01_portrait.png'}}   // ⚑ 上传型作品的立绘是 portrait.png，⛔ 别写死
+  else if(!$('#prompt').value.trim()){$('#portraitMsg').textContent='先写一句话';$('#prompt').focus();return}
+  const btn=PP.mode==='edit'?$('#btnEditGo'):$('#btnPortrait');btn.disabled=true;$('#portraitMsg').textContent=PP.mode==='edit'?'大模型在整理改图指令…（几秒，不花图钱）':'大模型在写立绘描述…（几秒，不花图钱）';
+  const raw=(PP.mode==='edit'?$('#editPrompt').value:$('#prompt').value).trim();
+  try{const r=await askPP();PP.desc=r.desc;PP.source=r.source;$('#ppMsg').textContent=r.model?`由 ${r.model} 写`:'大模型没配 ⇒ 用你的原句'}
+  catch(e){PP.desc=raw;PP.source='sentence';$('#ppMsg').textContent='优化失败：'+e.message+' ⇒ 用你的原句'}
+  btn.disabled=false;$('#portraitMsg').textContent='';renderPP()}
+$('#ppDesc').oninput=()=>{PP.desc=$('#ppDesc').value;PP.source='base';$('#ppFull').textContent=ppFull()};
+['#style','#view','#weaponPose'].forEach(s=>$(s).addEventListener('input',()=>{if(!$('#ppCard').hidden)$('#ppFull').textContent=ppFull()}));
+$('#ppRewrite').onclick=async()=>{const b=$('#ppRewrite');b.disabled=true;b.textContent='写…';
+  try{const r=await askPP($('#ppHint').value.trim()||'换一种写法');PP.desc=r.desc;PP.source=r.source;$('#ppDesc').value=PP.desc;$('#ppFull').textContent=ppFull();$('#ppMsg').textContent=r.model?`由 ${r.model} 重写`:'大模型没返回'}catch(e){$('#ppMsg').textContent='重写失败：'+e.message}
+  b.disabled=false;b.textContent='重写'};
+$('#ppCancel').onclick=()=>$('#ppCard').hidden=true;
+$('#ppGo').onclick=()=>{if(!PP.desc.trim())return;$('#ppCard').hidden=true;
+  if(PP.mode==='edit')startPortrait({portrait_from:PP.base,portrait_edit:PP.desc.trim()});else startPortrait({portrait_desc:PP.desc.trim()})};
+$('#btnPortrait').onclick=()=>reviewPortrait('new');
+$('#btnPortraitRedo').onclick=()=>{if(PP.desc&&PP.mode==='new')renderPP();else reviewPortrait('new')};   // ⚑ 再出一张：把上次的描述再给你看一眼（想改就改）
 $('#btnPortraitEdit').onclick=()=>{$('#editBox').hidden=!$('#editBox').hidden;$('#editPrompt').focus()};
-$('#btnEditGo').onclick=()=>{if(!W.portraitJob){$('#portraitMsg').textContent='改版要基于一张作品里的立绘';return}if(!$('#editPrompt').value.trim())return;const base=W.portraitJob;startPortrait({portrait_from:{job:base,path:'out/01_portrait.png'},portrait_edit:$('#editPrompt').value})};
+$('#btnEditGo').onclick=()=>{if(!W.portraitJob){$('#portraitMsg').textContent='改版要基于一张作品里的立绘';return}if(!$('#editPrompt').value.trim()){$('#editPrompt').focus();return}reviewPortrait('edit')};   // ⚑ 改图指令也先优化、先看
 function renderPortraitJob(j){
   $('#presProg').innerHTML=(j.steps||[]).map(s=>`<div class="${s.status}"><span class="dot"></span>${esc(s.label)}</div>`).join('');
   if(j.status==='done'&&j.artifacts.portrait){$('#presImg').src=`/api/jobs/${j.id}/file/${j.artifacts.portrait}?t=${j.id}`;$('#presStatus').innerHTML=`✅ 立绘已出（¥${j.cost.spent.toFixed(2)}）。看清楚：全身 / 朝左 / 灰底 / 武器姿势。不满意就再出，别带着将就的图往下走。`;
-    $('#btnPortraitOk').hidden=$('#btnPortraitRedo').hidden=$('#btnPortraitEdit').hidden=false;$('#btnPortrait').disabled=false;W.portraitJob=j.id;W.portraitPath=null}
+    $('#btnPortraitOk').hidden=$('#btnPortraitRedo').hidden=$('#btnPortraitEdit').hidden=false;$('#btnPortrait').disabled=false;W.portraitJob=j.id;W.portraitJobPath=j.artifacts.portrait;W.portraitPath=null}
   else if(j.status==='failed'){$('#presStatus').innerHTML=`<span class="bad">✗ ${esc(j.error||'失败')}</span>`;$('#btnPortraitRedo').hidden=false;$('#btnPortrait').disabled=false}}
 $('#btnPortraitOk').onclick=()=>{acceptPortrait();$('#actCard').scrollIntoView({behavior:'smooth',block:'start'})};
-function acceptPortrait(){$('#portraitInUse').innerHTML=W.portraitJob?`使用作品 <b>${W.portraitJob}</b> 的立绘`:'使用你上传的立绘';estimate()}
-function usePortraitOf(id){W.portraitJob=id;W.portraitPath=null;const j=JOBSTATE.find(x=>x.id===id);if(j)showPres(`/api/jobs/${id}/file/${j.artifacts.portrait}`,`作品 ${id} 的立绘`);acceptPortrait();showTab('gen');$('#actCard').scrollIntoView({behavior:'smooth'})}
+function acceptPortrait(){$('#portraitInUse').innerHTML=W.portraitJob?`使用作品 <b>${W.portraitJob}</b> 的立绘`:'使用你上传的立绘';
+  // ⚑ 视角跟随立绘所在的作品（⚑ 俯视立绘配横版提示词 = 没有锁镜头句；⚠ 刷新页面下拉框会回默认，⛔ 不能靠它记）
+  const j=W.portraitJob&&JOBSTATE.find(x=>x.id===W.portraitJob);
+  if(j&&j.view&&D.views?.[j.view]&&$('#view').value!==j.view){$('#view').value=j.view;$('#portraitMsg').textContent='视角已跟随这张立绘：'+D.views[j.view].label.split('（')[0]}
+  estimate()}
+function usePortraitOf(id){const j=JOBSTATE.find(x=>x.id===id);W.portraitJob=id;W.portraitJobPath=j?j.artifacts.portrait:null;W.portraitPath=null;if(j)showPres(`/api/jobs/${id}/file/${j.artifacts.portrait}`,`作品 ${id} 的立绘`);acceptPortrait();showTab('gen');$('#actCard').scrollIntoView({behavior:'smooth'})}
 
-// ───────── 动作（chips + 每个动作一个 ⚙ 面板）
-let ACTS={}, COMBO=[], SEL=new Set(['walk','attack']);
-function buildActs(){ACTS=JSON.parse(JSON.stringify(D.actions));COMBO=[];renderActs()}
-function optsPanel(k,a,custom){const provOpts=Object.entries(D.providers).map(([p,v])=>`<option value="${p}">${esc(v.label)}</option>`).join('');
+// ───────── 动作（⚑ 六个常用 chip：待机/移动/奔跑/受击/死亡/攻击，每个一个 ⚙ 面板；⚑ 攻击可设 1~3 段 ⇒ attack/attack2/attack3 连招）
+let ACTS={}, SEL=new Set(['walk','attack']);
+const RV={character:'',source:{},motions:{},plan:null};      // ⚑ 提示词审阅态：大模型写的运动段 + 用户改动
+function buildActs(){ACTS=JSON.parse(JSON.stringify(D.actions));renderActs()}
+function atkN(){return +($('.opts[data-a="attack"] .atkn')?.value||1)}
+function optsPanel(k,a){const provOpts=Object.entries(D.providers).map(([p,v])=>`<option value="${p}">${esc(v.label)}</option>`).join('');
   return `<div class="opts" data-a="${k}">
-    ${custom?`<div class="row"><label style="margin:0">名字 <input type="text" class="lbl" value="${esc(a.label||k)}" style="width:120px"></label></div><label>运动描述（只写要看到的姿态和方向；该动的部位点名给幅度；结尾回到开头站姿）</label><textarea class="motion" style="min-height:60px">${esc(a.motion||'')}</textarea>`:''}
+    ${k==='attack'?`<div class="row"><label style="margin:0">段数 <select class="atkn" style="width:auto"><option value="1">1 段</option><option value="2">2 段（横砍 → 竖劈）</option><option value="3">3 段（横砍 → 竖劈 → 直刺）</option></select></label><span class="note" style="margin:0">多段＝连招：每段各一发视频、各一份提示词（下一步都能改）；后两段用各自默认的秒/帧/格子。</span></div>`:''}
     <div class="row" style="margin-top:6px"><label style="margin:0">provider <select class="prov" style="width:auto">${provOpts}</select></label><label style="margin:0">model <input type="text" class="model" value="${D.providers.dashscope.model}" style="width:180px"></label>
       <label style="margin:0">分辨率 <select class="res" style="width:auto"><option>480P</option><option>720P</option></select></label>
       <label style="margin:0">秒 <input type="number" class="dur" value="${a.dur}" min="2" max="30"></label>
       <label style="margin:0">帧数 <input type="number" class="frames" value="${a.frames}" min="2" max="24"></label>
       <label style="margin:0">挑帧 <select class="pick" style="width:auto"><option>loop</option><option>even</option><option>still</option></select></label>
       <label style="margin:0">格子 <input type="text" class="cell" value="${a.cell}" style="width:90px"></label></div>
-    <label>补充运动描述（追加到模板，可空）</label><input type="text" class="extra">
-    ${custom?'<div class="row" style="margin-top:6px"><button class="btn sm ghost rmact">删除这个动作</button></div>':''}</div>`}
+    <label>补充运动描述（追加到提示词末尾，可空；提示词正文在下一步看、改）</label><input type="text" class="extra"></div>`}
 function renderActs(){
-  $('#acts').innerHTML=Object.entries(ACTS).map(([k,a])=>`<span class="chip ${SEL.has(k)?'on':''}" data-a="${k}"><span class="nm">${esc(a.label||k)}</span><span class="p" data-cost="${k}"></span><span class="gear" title="参数">⚙</span></span>`).join('')+
-    Object.entries(D.presets).map(([k,p])=>`<span class="chip preset" data-p="${k}">＋ ${esc(p.label)}</span>`).join('')+`<span class="chip" id="addCustom">＋ 自定义</span>`;
-  $('#actOpts').innerHTML=Object.entries(ACTS).map(([k,a])=>optsPanel(k,a,!D.actions[k])).join('');
+  $('#acts').innerHTML=D.ui_actions.filter(k=>ACTS[k]).map(k=>`<span class="chip ${SEL.has(k)?'on':''}" data-a="${k}"><span class="nm">${esc(ACTS[k].label)}</span><span class="n" data-n="${k}"></span><span class="p" data-cost="${k}"></span><span class="gear" title="参数">⚙</span></span>`).join('');
+  $('#actOpts').innerHTML=D.ui_actions.filter(k=>ACTS[k]).map(k=>optsPanel(k,ACTS[k])).join('');
   $$('.opts').forEach(el=>{const k=el.dataset.a;el.querySelector('.pick').value=ACTS[k].pick;el.querySelector('.prov').onchange=e=>{el.querySelector('.model').value=D.providers[e.target.value].model;estimate()};
-    el.querySelectorAll('input,select,textarea').forEach(i=>i.addEventListener('input',()=>{const l=el.querySelector('.lbl');if(l)$(`.chip[data-a="${k}"] .nm`).textContent=l.value||k;estimate()}));
-    const rm=el.querySelector('.rmact');if(rm)rm.onclick=()=>{delete ACTS[k];SEL.delete(k);COMBO=COMBO.filter(x=>x!==k);renderActs()}});
+    el.querySelectorAll('input,select').forEach(i=>i.addEventListener('input',estimate))});
   $$('.chip[data-a]').forEach(c=>{const k=c.dataset.a;c.onclick=e=>{if(e.target.classList.contains('gear')){const o=$(`.opts[data-a="${k}"]`);const on=o.classList.contains('on');$$('.opts').forEach(x=>x.classList.remove('on'));o.classList.toggle('on',!on);return}SEL.has(k)?SEL.delete(k):SEL.add(k);c.classList.toggle('on',SEL.has(k));estimate()}});
-  $$('.chip.preset').forEach(b=>b.onclick=()=>{const p=D.presets[b.dataset.p];Object.assign(ACTS,JSON.parse(JSON.stringify(p.actions)));COMBO=[...p.combo];p.combo.forEach(k=>SEL.add(k));renderActs()});
-  $('#addCustom').onclick=()=>{const k=prompt('动作 key（英文，如 dash / hurt / die）：');if(!k||ACTS[k])return;ACTS[k]={...D.custom_defaults,label:k};SEL.add(k);renderActs();$(`.opts[data-a="${k}"]`).classList.add('on')};
   estimate()}
-function readOpts(){const o=autoOpts();$$('.opts').forEach(el=>{o[el.dataset.a]={provider:el.querySelector('.prov').value,model:el.querySelector('.model').value.trim(),res:el.querySelector('.res').value,dur:+el.querySelector('.dur').value,frames:+el.querySelector('.frames').value,pick:el.querySelector('.pick').value,cell:el.querySelector('.cell').value.trim(),extra:el.querySelector('.extra').value.trim()}});return o}
-function readCustom(){const c={};$$('.opts').forEach(el=>{const k=el.dataset.a;if(D.actions[k])return;c[k]={...ACTS[k],label:(el.querySelector('.lbl')?.value.trim())||k,motion:el.querySelector('.motion')?.value.trim()||''}});return c}
+// ⚑ 计划：选中的 chip → 真正要出的动作列表（⚑ 攻击 N 段展开成 attack/attack2/attack3，label 攻击1/2/3，combo 按顺序）
+function plan(){const actions=[],labels={};for(const k of D.ui_actions){if(!SEL.has(k)||!ACTS[k])continue;if(k==='attack'){const chain=D.attack_chain.slice(0,atkN());chain.forEach((c,i)=>{actions.push(c);if(chain.length>1)labels[c]='攻击'+(i+1)})}else actions.push(k)}
+  const combo=actions.filter(a=>D.attack_chain.includes(a));return {actions,labels,combo:combo.length>1?combo:[]}}
+function panelOf(a){return $(`.opts[data-a="${D.attack_chain.includes(a)?'attack':a}"]`)}
+function readOpts(P){const o=autoOpts();(P||plan()).actions.forEach(a=>{const el=panelOf(a);if(!el)return;const own=a===el.dataset.a,d=ACTS[a]||{};   // ⚑ attack2/3 共用攻击面板的 provider/model/res/extra，秒/帧/挑帧/格子用各自默认
+  o[a]={provider:el.querySelector('.prov').value,model:el.querySelector('.model').value.trim(),res:el.querySelector('.res').value,dur:own?+el.querySelector('.dur').value:d.dur,frames:own?+el.querySelector('.frames').value:d.frames,pick:own?el.querySelector('.pick').value:d.pick,cell:own?el.querySelector('.cell').value.trim():d.cell,extra:el.querySelector('.extra').value.trim()}});return o}
 const lbl=(j,a)=>(j.action_defs&&j.action_defs[a]&&j.action_defs[a].label)||(D.actions[a]&&D.actions[a].label)||a;
 function vprice(p,r,d,m){if(p==='zhipu'){const z=D.prices.zhipu||{};return z[m]!=null?z[m]:1.0}if(p!=='dashscope')return 0;const k=`${p}|${r}|${d}`;if(D.prices.video[k]!=null)return D.prices.video[k];return +((D.prices.per_sec[`${p}|${r}`]||0.21)*d).toFixed(2)}
-function estimate(){if(!D||!Object.keys(ACTS).length)return;const o=readOpts();let total=0;
-  Object.keys(ACTS).forEach(k=>{const p=demo?0:vprice(o[k].provider,o[k].res,o[k].dur,o[k].model);$(`[data-cost="${k}"]`).textContent=p?`¥${p.toFixed(2)}`:(demo?'':'免费');if(SEL.has(k))total+=p});
-  $('#costTotal').textContent=demo?'（试运行）':'¥'+total.toFixed(2)}
-$('#go').onclick=async()=>{const actions=[...SEL].filter(k=>ACTS[k]);if(!actions.length){$('#goMsg').textContent='至少选一个动作';return}
+function estimate(){if(!D||!Object.keys(ACTS).length)return;let total=0;
+  D.ui_actions.forEach(k=>{const el=panelOf(k);if(!el||!ACTS[k])return;const keys=k==='attack'?D.attack_chain.slice(0,atkN()):[k];
+    const p=demo?0:keys.reduce((s,a)=>s+vprice(el.querySelector('.prov').value,el.querySelector('.res').value,a===k?+el.querySelector('.dur').value:ACTS[a].dur,el.querySelector('.model').value.trim()),0);
+    $(`[data-cost="${k}"]`).textContent=p?`¥${p.toFixed(2)}`:(demo?'':'免费');$(`[data-n="${k}"]`).textContent=k==='attack'&&atkN()>1?`×${atkN()}`:'';if(SEL.has(k))total+=p});
+  $('#costTotal').textContent=$('#rvCost').textContent=demo?'（试运行）':'¥'+total.toFixed(2)}
+function jobBody(P,o){return {mode:demo?'demo':'generate',prompt:$('#prompt').value,style:$('#style').value,view:$('#view').value,actions:P.actions,options:o,combo:P.combo,confirm:true,portrait_upload:W.portraitPath,portrait_job:W.portraitJob,portrait_path:W.portraitJobPath}}
+async function submit(body){const st=await api('/api/jobs',{method:'POST',body});W.aJob=st.id;W.logJob=st.id;W.logOff=0;$('#log').textContent='';$('#rvCard').hidden=true;$('#curCard').hidden=false;$('#curCard').scrollIntoView({behavior:'smooth',block:'start'});pollJobs()}
+// ⚑⚑ 出动作 ＝ 两步：① 大模型按立绘写好各动作的运动段 → 审阅卡；② 用户确认 → 才真的花钱（⚑ 用户 2026-09-09：优化完提示词再去做视频）
+$('#go').onclick=async()=>{const P=plan();if(!P.actions.length){$('#goMsg').textContent='至少选一个动作';return}
   if(!demo&&!portraitReady()){$('#goMsg').textContent='先出一张立绘（或用已有的）';$('#prompt').scrollIntoView({behavior:'smooth'});return}
   $('#goMsg').textContent='';
-  try{const st=await api('/api/jobs',{method:'POST',body:{mode:demo?'demo':'generate',prompt:$('#prompt').value,style:$('#style').value,actions,options:readOpts(),custom_actions:readCustom(),combo:COMBO.filter(k=>actions.includes(k)),confirm:true,portrait_upload:W.portraitPath,portrait_job:W.portraitJob}});
-    W.aJob=st.id;W.logJob=st.id;W.logOff=0;$('#log').textContent='';$('#curCard').hidden=false;$('#curCard').scrollIntoView({behavior:'smooth',block:'start'});pollJobs()}
-  catch(e){$('#goMsg').textContent=e.message}};
+  if(demo){try{await submit(jobBody(P,readOpts(P)))}catch(e){$('#goMsg').textContent=e.message}return}   // ⚑ 试运行不调 API，提示词无所谓，直接跑
+  $('#go').disabled=true;$('#goMsg').textContent='大模型在按这张立绘写提示词…（十几秒，不花视频钱）';
+  RV.plan=P;RV.character='';const o=readOpts(P);
+  try{const r=await optimize(P,o);applyRV(r,P.actions);
+    $('#rvMsg').textContent=r.model?`由 ${r.model} 写 · 角色描述来自${{sentence:'你的一句话',vlm:'看图'}[r.character_source]||'—'}`:'大模型没配或没返回 ⇒ 下面是内置模板'}
+  catch(e){P.actions.forEach(a=>{RV.motions[a]=ACTS[a].motion;RV.source[a]='template'});$('#rvMsg').textContent='优化失败：'+e.message+' ⇒ 下面是内置模板'}
+  $('#go').disabled=false;$('#goMsg').textContent='';renderReview(P,o);$('#rvCard').hidden=false;$('#rvCard').scrollIntoView({behavior:'smooth',block:'start'})};
+function optimize(P,o,only,hint){const body={actions:only?[only]:P.actions,prompt:$('#prompt').value,style:$('#style').value,view:$('#view').value,labels:P.labels,portrait_job:W.portraitJob,portrait_path:W.portraitJobPath,portrait_upload:W.portraitPath,character:RV.character,bases:{},hints:{},extras:{}};
+  P.actions.forEach(a=>body.extras[a]=o[a]?.extra||'');if(only){body.bases[only]=RV.motions[only]||'';body.hints[only]=hint||''}return api('/api/prompt/optimize',{method:'POST',body})}
+function applyRV(r,keys){if(r.character)RV.character=r.character;keys.forEach(a=>{if(r.motions&&r.motions[a]){RV.motions[a]=r.motions[a];RV.source[a]=r.source[a]}})}
+const fullPrompt=(a,extra)=>{const cam=D.views?.[$('#view').value]?.video||'';return D.prompt_head+(cam?cam+'\n':'')+'只有这些在运动，其余部位保持原位：'+(RV.motions[a]||'')+(extra?'\n'+extra:'')+D.prompt_tail};
+const SRC={llm:'大模型写的',template:'内置模板',base:'你改过的'};
+function renderReview(P,o){
+  const vl=(D.views?.[$('#view').value]?.label||'').split('（')[0];
+  $('#rvChar').innerHTML=`<span class="pill" style="margin:0 6px 0 0">${esc(vl)}</span>`+(RV.character?`角色：${esc(RV.character)}`:'<span class="warn">没有角色描述（一句话空着、看图也没成）—— 大模型不知道角色手里拿什么，下面是通用模板；可以直接改。</span>');
+  $('#rvList').innerHTML=P.actions.map(a=>`<div class="rv" data-a="${a}"><div class="row between"><b>${esc(P.labels[a]||ACTS[a].label)}</b><span class="pill">${SRC[RV.source[a]]||'—'}</span></div>
+    <textarea class="motion">${esc(RV.motions[a]||'')}</textarea>
+    <div class="row" style="margin-top:6px"><input type="text" class="hint grow" placeholder="不满意？说一句怎么改（例：强调剑一直垂在身侧不动），再让它重写"><button class="btn sm ghost rewrite">重写</button></div>
+    <details class="more"><summary>完整提示词（发给视频模型的原文）</summary><pre class="full">${esc(fullPrompt(a,o[a]?.extra))}</pre></details></div>`).join('');
+  $$('.rv').forEach(el=>{const a=el.dataset.a,ta=el.querySelector('.motion'),pill=el.querySelector('.pill'),full=el.querySelector('.full');
+    ta.oninput=()=>{RV.motions[a]=ta.value;RV.source[a]='base';pill.textContent=SRC.base;full.textContent=fullPrompt(a,o[a]?.extra)};
+    el.querySelector('.rewrite').onclick=async e=>{const b=e.target;b.disabled=true;b.textContent='写…';
+      try{const r=await optimize(P,o,a,el.querySelector('.hint').value.trim());applyRV(r,[a]);ta.value=RV.motions[a];pill.textContent=SRC[RV.source[a]]||'—';full.textContent=fullPrompt(a,o[a]?.extra)}catch(err){$('#rvMsg').textContent='重写失败：'+err.message}
+      b.disabled=false;b.textContent='重写'}})}
+$('#rvBack').onclick=()=>{$('#rvCard').hidden=true;$('#actCard').scrollIntoView({behavior:'smooth'})};
+$('#rvGo').onclick=async()=>{const P=RV.plan||plan(),o=readOpts(P);P.actions.forEach(a=>{o[a].motion=(RV.motions[a]||'').trim();if(P.labels[a])o[a].label=P.labels[a]});o.prompt_llm=false;   // ⚑ 已经审过了，任务里别再扩写一遍
+  $('#rvGoMsg').textContent='';$('#rvGo').disabled=true;try{await submit(jobBody(P,o))}catch(e){$('#rvGoMsg').textContent=e.message}$('#rvGo').disabled=false};
 
 // ───────── 结果
 function renderCurJob(j){
@@ -352,11 +467,20 @@ function renderCurJob(j){
   $('#curProg').innerHTML=(j.steps||[]).map(s=>`<div class="${s.status}"><span class="dot"></span>${esc(s.label)}</div>`).join('')+(j.error?`<div class="failed"><span class="dot"></span><span class="bad">${esc(j.error)}</span></div>`:'');
   const done=j.status==='done';
   $('#curResults').innerHTML=(j.actions||[]).map(a=>{const art=j.artifacts[a]||{};if(!art.gif)return '';const m=art.metrics||{};
-    return `<div class="res"><img src="/api/jobs/${j.id}/file/${art.gif}?t=${j.id}" alt="${a}"><div class="small" style="margin-top:6px"><b>${esc(lbl(j,a))}</b> · ${art.frames} 帧 · ¥${(j.cost.spent_by?.[lbl(j,a)]??0).toFixed(2)}</div>
-      <div class="dim small">形变 ${m['形变%']?.toFixed(1)??'-'}% · 循环缝 ${m['循环缝']?.toFixed(2)??'-'} · 亮度漂 ${m['亮度漂']?.toFixed(1)??'-'}${art.anim_check?(art.anim_check.pass?' · 自检✅':' · 自检❌'):''}${(art.sheet_info||{}).no_loop?' · <span class="warn">没找到循环段</span>':''}</div></div>`}).join('');
+    return `<div class="res"><img src="/api/jobs/${j.id}/file/${art.gif}?t=${j.id}-${art.resliced||0}" alt="${a}"><div class="small" style="margin-top:6px"><b>${esc(lbl(j,a))}</b> · ${art.frames} 帧 · ¥${(j.cost.spent_by?.[lbl(j,a)]??0).toFixed(2)}</div>
+      ${art.video?`<div class="row" style="margin-top:6px;gap:4px;justify-content:center">${framesSel(art.frames,'rsN',a)}<button class="btn sm ghost rs" data-a="${a}" title="用已出的视频重新挑帧，不花钱">重切</button></div>`:''}
+      <div class="dim small">形变 ${m['形变%']?.toFixed(1)??'-'}% · 循环缝 ${m['循环缝']?.toFixed(2)??'-'} · 亮度漂 ${m['亮度漂']?.toFixed(1)??'-'}${art.anim_check?(art.anim_check.pass?' · 自检✅':' · 自检❌'):''}${(art.sheet_info||{}).no_loop?' · <span class="warn">没找到循环段</span>':''}</div>
+      ${art.verdict?`<div class="bad small" style="margin-top:4px;max-width:260px">👁 判废：${esc(art.verdict)}</div>`:(art.vlm?`<div class="ok small" style="margin-top:4px">👁 看过，${art.vlm.kind==='loop'?'动作对、没崩':'已挑帧、没崩'}</div>`:'')}</div>`}).join('');
+  $$('#curResults .rs').forEach(b=>b.onclick=()=>reslice(j.id,b.dataset.a,+$(`#curResults .rsN[data-a="${b.dataset.a}"]`).value,b));
   $('#btnPreview').hidden=!(done&&j.actions&&j.actions.length);$('#btnExport').hidden=!done;$('#btnAnother').hidden=!done;
   $('#btnPreview').onclick=()=>openJob(j.id);$('#btnExport').onclick=()=>open(`/api/jobs/${j.id}/export`);$('#btnAnother').onclick=()=>$('#actCard').scrollIntoView({behavior:'smooth'})}
 $('#btnLog').onclick=()=>{$('#curLogWrap').hidden=!$('#curLogWrap').hidden;if(W.aJob){W.logJob=W.aJob;W.logOff=0;$('#log').textContent='';pollJobs()}};
+// ⚑ 重切：用已出的视频换帧数重新挑帧（⚑ 不花钱）。⚑ 制作页结果卡 + 预览页共用
+const framesSel=(cur,cls,a)=>`<select class="${cls}" data-a="${a}" style="width:auto;padding:3px 6px;font-size:12px">${[...new Set([4,6,8,12,cur].filter(Boolean))].sort((x,y)=>x-y).map(n=>`<option ${n===cur?'selected':''}>${n}</option>`).join('')}</select>`;
+async function reslice(id,a,n,btn){const t=btn.textContent;btn.disabled=true;btn.textContent='切…';
+  try{await api(`/api/jobs/${id}/reslice`,{method:'POST',body:{action:a,frames:n}});await pollJobs();const jj=JOBSTATE.find(x=>x.id===id);if(jj&&P.jobId===id&&P.action===a)loadAction(jj,a)}
+  catch(e){alert('重切失败：'+e.message)}
+  btn.disabled=false;btn.textContent=t}
 
 // ───────── 轮询
 async function pollJobs(){
@@ -370,10 +494,10 @@ async function pollJobs(){
   if(JOBSTATE.some(j=>j.status==='running'||j.status==='queued'))setTimeout(pollJobs,1500)}
 function renderGallery(){
   $('#gallery').innerHTML=JOBSTATE.length?JOBSTATE.map(j=>{const a=j.artifacts||{};
-    const media=[a.portrait?`<img src="/api/jobs/${j.id}/file/${a.portrait}" title="立绘">`:'',...(j.actions||[]).map(k=>a[k]&&a[k].gif?`<img class="anim" src="/api/jobs/${j.id}/file/${a[k].gif}" title="${esc(lbl(j,k))}">`:'')].join('');
+    const media=[a.portrait?`<img src="/api/jobs/${j.id}/file/${a.portrait}" title="立绘">`:'',...(j.actions||[]).map(k=>a[k]&&a[k].gif?`<img class="anim" src="/api/jobs/${j.id}/file/${a[k].gif}?t=${a[k].resliced||0}" title="${esc(lbl(j,k))}">`:'')].join('');
     const by=Object.entries(j.cost.spent_by||{}).filter(([,v])=>v>0).map(([k,v])=>`${esc(k)} ¥${v.toFixed(2)}`).join(' · ');
     return `<div class="gcard ${j.id===W.logJob?'sel':''}" data-id="${j.id}"><div class="media">${media||'<span class="dim small">（还没有产物）</span>'}</div>
-      <div class="title" title="${esc(j.prompt||'')}">${esc(j.prompt||'')||(a.portrait_base?'改版立绘':'(试运行)')}</div>
+      <div class="title" title="${esc(j.prompt||'')}">${esc(j.prompt||'')||(a.portrait_base?'改版立绘':'(试运行)')}${j.view&&j.view!=='side'?`<span class="pill">${esc((D.views?.[j.view]||{}).label||j.view).split('（')[0]}</span>`:''}</div>
       <div class="row between small" style="margin-top:6px"><span class="dim">${j.id}${j.mode==='demo'?' · 试运行':''}</span><span class="st ${j.status}">${j.status}</span></div>
       <div class="small" style="margin-top:4px">¥${j.cost.spent.toFixed(2)}${by?` <span class="dim">（${by}）</span>`:''}</div>
       ${j.status!=='done'?`<div class="row" style="gap:4px;margin-top:6px">${(j.steps||[]).slice(-3).map(s=>`<span class="stepc ${s.status}">${esc(s.label)}</span>`).join('')}</div>`:''}
@@ -390,18 +514,21 @@ function openJob(id){const j=JOBSTATE.find(x=>x.id===id)||AGRUNS.find(x=>x.id===
   $('#srcList').innerHTML=j.actions.map(a=>`<button class="btn sm ghost" data-a="${a}">${esc(lbl(j,a))}</button>`).join('')+(j.combo&&j.combo.length>1?`<div class="note">连招：${j.combo.map(a=>esc(lbl(j,a))).join(' → ')}（取消窗口在收招帧，见 manifest.combo）</div>`:'')+(j.artifacts.portrait?`<div class="thumbs"><img src="/api/jobs/${j.id}/file/${j.artifacts.portrait}" title="立绘">${j.artifacts.liubai?`<img src="/api/jobs/${j.id}/file/${j.artifacts.liubai}" title="留白图">`:''}</div>`:'');
   $$('#srcList button').forEach(b=>b.onclick=()=>{$$('#srcList button').forEach(x=>x.classList.toggle('on',x===b));loadAction(j,b.dataset.a)});
   const f=$('#srcList button');if(f){f.classList.add('on');loadAction(j,j.actions[0])}showTab('prev')}
-function loadAction(j,a){const art=j.artifacts[a];if(!art||!art.sheet)return;P.src=`/api/jobs/${j.id}/file/${art.sheet}`;loadSheet(P.src,art.cell,art.frames,art.cols);
+function loadAction(j,a){const art=j.artifacts[a];if(!art||!art.sheet)return;P.jobId=j.id;P.action=a;P.src=`/api/jobs/${j.id}/file/${art.sheet}?t=${art.resliced||0}`;loadSheet(P.src,art.cell,art.frames,art.cols);
   const L=lbl(j,a),m=art.metrics,mv=art.move,by=(j.cost.by||{})[L]||0,sp=j.cost.spent_by?.[L]||0;
   $('#metrics').innerHTML=`<table><tr><th>花费</th><td class="cost">¥${sp.toFixed(2)} <span class="dim">${art.provider?`· ${art.provider} ${art.model} ${art.res}/${art.dur}s`:''}</span></td></tr>
+    ${art.video?`<tr><th>帧数</th><td><span class="row" style="gap:6px">${framesSel(art.frames,'pvN',a)}<button class="btn sm ghost" id="pvRs">重切</button><span class="dim small">用已出视频重挑帧，不花钱；一次性动作换了帧数就不用视觉模型挑的帧</span></span></td></tr>`:''}
     ${m?['动量','形变%','循环缝','剪影密度%','亮度漂'].map(k=>`<tr><th>${k}</th><td class="mono">${m[k].toFixed(2)}</td></tr>`).join(''):'<tr><td colspan=2 class="dim">没有验收数据</td></tr>'}
     ${art.sheet_info?.period?`<tr><th>步频周期</th><td class="mono">${art.sheet_info.period} 帧${art.sheet_info.no_loop?' <span class="bad">没找到循环段</span>':''}</td></tr>`:''}
     ${mv?`<tr><th>位移</th><td class="mono">右 ${mv.right?.pct??'-'}% · 左 ${mv.left?.pct??'-'}% · 抬升 ${mv.lift?.pct??'-'}%</td></tr>`:''}
     ${art.anim_check?`<tr><th>图集自检</th><td class="${art.anim_check.pass?'ok':'bad'}">${art.anim_check.pass?'通过':'不通过：'+esc(art.anim_check.issues.join('；'))}</td></tr>`:''}
     ${'blade_ok' in art?`<tr><th>刀变细线</th><td class="${art.blade_ok?'ok':'warn'}">${art.blade_ok?'未发现':'有帧疑似'}</td></tr>`:''}
     ${art.foot_trim?`<tr><th>footTrim</th><td class="mono">${art.foot_trim.join(', ')}</td></tr>`:''}
-    ${art.vlm?`<tr><th>视觉模型</th><td class="${art.vlm.collapse?'bad':''}">挑 f${art.vlm.frames.join(', f')}${art.vlm.collapse?' · <b>判定崩坏</b>':''}${art.vlm.thin_weapon.length?' · 细线帧 '+art.vlm.thin_weapon.join(','):''}<br><span class="dim">${esc(art.vlm.notes)}</span></td></tr>`:''}
+    ${art.vlm?`<tr><th>视觉模型</th><td class="${art.vlm.collapse||art.vlm.is_action===false?'bad':''}">${art.vlm.kind==='loop'?(art.vlm.is_action===false?'<b>演的不是这个动作</b>':'动作对')+((art.vlm.issues||[]).length?'<br>'+art.vlm.issues.map(esc).join('<br>'):''):'挑 f'+(art.vlm.frames||[]).join(', f')}${art.vlm.collapse?' · <b>判定崩坏</b>':''}${(art.vlm.thin_weapon||[]).length?' · 细线帧 '+art.vlm.thin_weapon.join(','):''}<br><span class="dim">${esc(art.vlm.notes)}</span></td></tr>`:''}
+    ${art.motion_from?`<tr><th>运动段来源</th><td>${{user:'网页审过的',llm:'任务内大模型扩写',template:'内置模板'}[art.motion_from]||art.motion_from}</td></tr>`:''}
   </table><div class="note">循环缝 &gt;1.5 循环会跳；亮度漂突然变大多半是崩了。</div>`;
-  $('#thumbs').innerHTML=[['contact','联络表'],['gif','GIF'],['video','源视频']].filter(([k])=>art[k]).map(([k,n])=>k==='video'?`<video src="/api/jobs/${j.id}/file/${art[k]}" controls></video>`:`<a href="/api/jobs/${j.id}/file/${art[k]}" target="_blank"><img src="/api/jobs/${j.id}/file/${art[k]}" title="${n}"></a>`).join('');
+  $('#thumbs').innerHTML=[['contact','联络表'],['gif','GIF'],['video','源视频']].filter(([k])=>art[k]).map(([k,n])=>k==='video'?`<video src="/api/jobs/${j.id}/file/${art[k]}" controls></video>`:`<a href="/api/jobs/${j.id}/file/${art[k]}?t=${art.resliced||0}" target="_blank"><img src="/api/jobs/${j.id}/file/${art[k]}?t=${art.resliced||0}" title="${n}"></a>`).join('');
+  const rs=$('#pvRs');if(rs)rs.onclick=()=>reslice(j.id,a,+$('#metrics .pvN').value,rs);
   $('#dlSheet').onclick=()=>open(P.src);$('#dlGif').onclick=()=>art.gif&&open(`/api/jobs/${j.id}/file/${art.gif}`);$('#dlZip').onclick=()=>open(`/api/jobs/${j.id}/export`)}
 function loadSheet(src,cell,frames,cols){const im=new Image();im.onload=()=>{P.img=im;P.cell=cell;P.cols=cols||Math.max(1,Math.floor(im.width/cell[0]));P.frames=frames||P.cols*Math.max(1,Math.floor(im.height/cell[1]));P.i=0;P.t=0;P.holds=Array(P.frames).fill('');renderHolds();$('#cv').width=cell[0];$('#cv').height=cell[1];applyZoom()};im.src=src}
 function renderHolds(){$('#holds').innerHTML=P.holds.map((h,i)=>`<div>f${i+1}<br><input type="number" data-i="${i}" value="${h}" placeholder="${Math.round(1000/(+$('#fps').value||8))}"></div>`).join('');$$('#holds input').forEach(x=>x.oninput=()=>P.holds[+x.dataset.i]=x.value)}
@@ -435,7 +562,7 @@ async function pollAgent(){
   if(p){$('#agPending').innerHTML=`<b>${esc(p.msg)}</b>`;const q=p.type==='question';$('#agApprove').hidden=$('#agReject').hidden=q;$('#agReply').hidden=!q;const send=a=>async()=>{await api(`/api/agent/${j.id}/answer`,{method:'POST',body:{approve:a,text:$('#agAnswer').value}});$('#agAnswer').value='';pollAgent()};$('#agApprove').onclick=send(true);$('#agReject').onclick=send(false);$('#agReply').onclick=send(null)}
   if(j.status==='running'||j.status==='queued')setTimeout(pollAgent,2000)}
 
-loadDoctor().then(()=>{gate();applyMode();pollJobs();pollAgent()});
+loadDoctor().catch(e=>{$('#goMsg').textContent='初始化出错：'+e.message}).then(()=>{gate();applyMode();pollJobs();pollAgent()});   // ⚑ 初始化哪步炸了都别拦着作品列表加载
 </script>
 </body>
 </html>

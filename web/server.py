@@ -11,7 +11,11 @@ python web/server.py            # → http://127.0.0.1:8765
 import json
 import os
 import shutil
+import socket
+import subprocess
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -34,13 +38,41 @@ import pipeline  # noqa: E402
 import agent  # noqa: E402
 import _creds  # noqa: E402
 
+
+def _ffmpeg_path():
+    """⚑ 让本进程（及它起的子进程）找得到 ffmpeg：⚑ tools/bin（一键安装放这）＋ winget 的 Gyan.FFmpeg 目录 ⇒ 塞进 PATH 前面。
+    ⚑ 装完不用重启服务、不用改系统 PATH。⚑ 返回 which 结果。"""
+    import glob
+    cands = [HERE.parent / 'tools' / 'bin']
+    la = os.environ.get('LOCALAPPDATA')
+    if la:
+        cands += [Path(p) for p in glob.glob(os.path.join(la, 'Microsoft', 'WinGet', 'Packages', 'Gyan.FFmpeg*', 'ffmpeg-*', 'bin'))]
+    for d in cands:
+        if (d / ('ffmpeg.exe' if os.name == 'nt' else 'ffmpeg')).exists() and str(d) not in os.environ.get('PATH', ''):
+            os.environ['PATH'] = str(d) + os.pathsep + os.environ.get('PATH', '')
+    return shutil.which('ffmpeg')
+
+
+_ffmpeg_path()
+
 app = FastAPI(title='anim-pipeline')
 app.mount('/static', StaticFiles(directory=str(HERE / 'static')), name='static')
 UPLOADS = pipeline.JOBS / '_uploads'
 UPLOADS.mkdir(parents=True, exist_ok=True)
-_stale = pipeline.sweep_stale()
-if _stale:
-    print(f'⚠ 上次没跑完的任务 {_stale} 个，已标为失败')
+# ⚠ sweep_stale（把 running 的任务标 failed）⛔ 不能放在 import 时跑：⚑ 测试/别的进程一 import 就会把**正在跑的服务**的任务误标
+#   （2026-09-09 真发生过，靠任务进程下一次 save 覆盖回来）⇒ ⚑ 挪到 __main__、拿到端口之后
+
+# ⚑ 重启（⚑ 用户 2026-09-09：网页 HTML 从磁盘读、后端是旧进程 ⇒ 新前端配旧后端直接炸；⚑ 要能在网页上点一下重启）
+#   ⚑ stale：⚑ 这几份代码的 mtime 比进程启动时新 ⇒ 网页上亮「重启服务」按钮
+_STARTED = time.time()
+_CODE_FILES = [HERE / 'server.py', HERE / 'pipeline.py', HERE / 'agent.py', HERE.parent / 'tools' / '_creds.py']
+_CODE_MTIME = max(f.stat().st_mtime for f in _CODE_FILES if f.exists())
+SERVER_LOG = pipeline.JOBS / '_server.log'
+
+
+def _stale() -> bool:
+    return any(f.exists() and f.stat().st_mtime > _CODE_MTIME + 0.5 for f in _CODE_FILES)
+
 
 PROVIDERS = ['relay', 'wan', 'ark', 'glm', 'minimax', 'llm']
 DEFAULT_BASE = {
@@ -67,7 +99,8 @@ def doctor():
     cr = {n: _creds.get(n) for n in PROVIDERS}
     return {
         'python': sys.version.split()[0],
-        'ffmpeg': bool(shutil.which('ffmpeg')), 'ffprobe': bool(shutil.which('ffprobe')),
+        'ffmpeg': bool(_ffmpeg_path()) and bool(shutil.which('ffprobe')), 'ffprobe': bool(shutil.which('ffprobe')),
+        'ffmpeg_path': shutil.which('ffmpeg'),
         'numpy': _has('numpy'), 'pillow': _has('PIL'),
         'creds': {n: ({'from': c['_from'], 'base': c['base'], 'key': _mask(c['key']), 'model': c.get('model', ''),
                        'vision_model': c.get('vision_model', '')}
@@ -75,6 +108,12 @@ def doctor():
         'can': can,
         'caps': {k: v[2] for k, v in _creds.CAPS.items()},
         'actions': pipeline.ACTIONS,
+        'ui_actions': pipeline.UI_ACTIONS,
+        'views': pipeline.VIEWS,
+        'portrait_tmpl': pipeline.PORTRAIT_TMPL, 'weapon_pose': pipeline.WEAPON_POSE, 'default_style': pipeline.DEFAULT_STYLE,   # ⚑ 网页拼立绘完整提示词
+        'portrait_edit_suffix': pipeline.PORTRAIT_EDIT_SUFFIX,
+        'attack_chain': pipeline.ATTACK_CHAIN,
+        'prompt_head': pipeline.PROMPT_HEAD, 'prompt_tail': pipeline.PROMPT_TAIL,   # ⚑ 网页拼「完整提示词」预览用
         'presets': pipeline.PRESETS,
         'custom_defaults': pipeline.CUSTOM_DEFAULTS,
         'providers': pipeline.VIDEO_PROVIDERS,
@@ -84,7 +123,32 @@ def doctor():
                    'zhipu': pipeline.ZHIPU_PRICE},
         'llm_default': pipeline.LLM_DEFAULT_MODEL,
         'creds_file': str(_creds.USER_CFG),
+        'started': _STARTED, 'stale': _stale(), 'server_log': str(SERVER_LOG),
     }
+
+
+@app.post('/api/restart')
+def restart():
+    """⚑ 网页上点「重启服务」：⚑ 先拉起一个等端口的新进程，⚑ 自己再退出。⛔ 有任务在跑就拒绝（⚑ 杀了等于白花钱）。"""
+    busy = [j['id'] for j in pipeline.list_jobs() if j.get('status') in ('running', 'queued', 'waiting')]
+    if busy:
+        raise HTTPException(409, f'有任务在跑（{", ".join(busy)}），跑完再重启')
+
+    def go():
+        time.sleep(0.3)                                   # ⚑ 让这次响应先发出去
+        log = open(SERVER_LOG, 'a', encoding='utf-8')
+        log.write(f'\n───── {time.strftime("%Y-%m-%d %H:%M:%S")} 网页重启：{sys.executable} {" ".join(sys.argv)}  cwd={os.getcwd()}\n')
+        log.flush()
+        kw = dict(cwd=os.getcwd(), env={**os.environ, 'ANIMPIPE_WAIT_PORT': '1'},
+                  stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, close_fds=True)
+        if os.name == 'nt':                               # ⚑ 脱离当前控制台，⚑ 旧进程退了它还活着
+            kw['creationflags'] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+        else:
+            kw['start_new_session'] = True
+        subprocess.Popen([sys.executable] + sys.argv, **kw)
+        os._exit(0)
+    threading.Thread(target=go, daemon=True).start()
+    return {'ok': True, 'msg': '重启中', 'log': str(SERVER_LOG)}
 
 
 def _has(m):
@@ -220,6 +284,39 @@ def probe_cred(name: str, body: dict = None):
     return {'ok': False, 'msg': '未实现'}
 
 
+# ─────────────────────────────── 环境：一键装 ffmpeg（⚑ 跑 tools/install_ffmpeg.py，⚑ 日志按行给网页）
+_INSTALL = {'running': False, 'ok': None, 'log': []}
+
+
+@app.post('/api/install/ffmpeg')
+def install_ffmpeg():
+    if _INSTALL['running']:
+        return {'ok': True, 'msg': '正在装'}
+
+    def go():
+        _INSTALL.update(running=True, ok=None, log=[])
+        try:
+            p = subprocess.Popen([sys.executable, str(HERE.parent / 'tools' / 'install_ffmpeg.py')],
+                                 cwd=str(HERE.parent), env={**os.environ, 'PYTHONIOENCODING': 'utf-8', 'PYTHONUNBUFFERED': '1'},
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+            for line in p.stdout:
+                _INSTALL['log'].append(line.rstrip())
+                del _INSTALL['log'][:-200]
+            code = p.wait()
+        except Exception as e:
+            _INSTALL['log'].append(f'✗ {e}')
+            code = 1
+        _ffmpeg_path()                                    # ⚑ 装到 tools/bin 或 winget 目录 ⇒ 立刻塞进 PATH，不用重启
+        _INSTALL.update(running=False, ok=(code == 0 and bool(shutil.which('ffmpeg'))))
+    threading.Thread(target=go, daemon=True).start()
+    return {'ok': True}
+
+
+@app.get('/api/install/ffmpeg')
+def install_ffmpeg_status():
+    return {**_INSTALL, 'ffmpeg': shutil.which('ffmpeg')}
+
+
 # ─────────────────────────────── 任务
 @app.post('/api/jobs')
 def create_job(body: dict):
@@ -252,7 +349,8 @@ def create_job(body: dict):
     portrait_upload = body.get('portrait_upload')
     if body.get('portrait_job'):                          # ⚑ 「满意，用这张立绘出动作」：⚑ 直接引用某个任务的立绘
         portrait_upload = str(_safe(body['portrait_job'], body.get('portrait_path') or 'out/01_portrait.png'))
-    spec = {'mode': mode, 'prompt': body.get('prompt', ''), 'style': body.get('style', ''),
+    spec = {'mode': mode, 'prompt': body.get('prompt', ''), 'style': body.get('style', ''), 'view': body.get('view') or 'side',
+            'portrait_desc': (body.get('portrait_desc') or '').strip(),     # ⚑ 网页审过的立绘描述（可空）
             'actions': actions, 'options': body.get('options', {}),
             'presets': body.get('presets', []), 'custom_actions': body.get('custom_actions') or {},
             'combo': body.get('combo') or [], 'portrait_upload': portrait_upload}
@@ -318,6 +416,15 @@ def job_export(job_id: str):
     return FileResponse(str(z), filename=f'anim_{job_id}.zip')
 
 
+@app.post('/api/jobs/{job_id}/reslice')
+def job_reslice(job_id: str, body: dict):
+    """⚑ 用已出的视频重切图集：换帧数（⚑ 不花钱）。body: {action, frames, pick?}"""
+    try:
+        return pipeline.reslice(job_id, str(body.get('action') or ''), int(body.get('frames') or 0), body.get('pick') or None)
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(400, str(e))
+
+
 @app.delete('/api/jobs/{job_id}')
 def job_delete(job_id: str):
     d = (pipeline.JOBS / job_id).resolve()
@@ -369,10 +476,45 @@ async def extract(file: UploadFile = File(...), cell: str = Form('192x256')):
     return FileResponse(str(z), filename='frames.zip')
 
 
+@app.post('/api/prompt/optimize')
+def prompt_optimize(body: dict):
+    """⚑ 出片前：大模型按立绘/一句话把各动作的运动段写好，⚑ 返回给网页看、改、确认。⚑ 不花视频钱（只一两次 LLM 调用）。
+    body: actions / prompt / style / labels / bases / hints / extras / character / portrait_job(+portrait_path) / portrait_upload"""
+    actions = [a for a in body.get('actions', []) if a in pipeline.ACTIONS]
+    if not actions:
+        raise HTTPException(400, '没有动作')
+    png = None
+    if body.get('portrait_job'):
+        try:
+            png = _safe(body['portrait_job'], body.get('portrait_path') or 'out/01_portrait.png')
+        except HTTPException:
+            png = None
+    elif body.get('portrait_upload'):
+        p = Path(body['portrait_upload'])
+        png = p if p.exists() else None
+    return pipeline.optimize_prompts(actions, body.get('prompt', ''), body.get('style', ''), png,
+                                     labels=body.get('labels') or {}, bases=body.get('bases') or {},
+                                     hints=body.get('hints') or {}, extras=body.get('extras') or {},
+                                     character=body.get('character', ''), model=body.get('model', ''),
+                                     provider=body.get('provider'), view=body.get('view') or 'side')
+
+
+@app.post('/api/prompt/portrait')
+def prompt_portrait(body: dict):
+    """⚑ 出图前：大模型把一句话写成立绘外观描述，⚑ 返回描述 + 完整提示词给网页看、改、确认。⚑ 不花图钱。"""
+    if not ((body.get('prompt') or '').strip() or (body.get('base') or '').strip()):
+        raise HTTPException(400, '先写一句话')
+    return pipeline.optimize_portrait(body.get('prompt', ''), body.get('style', ''), hint=body.get('hint', ''),
+                                      base=body.get('base', ''), model=body.get('model', ''), provider=body.get('provider'),
+                                      view=body.get('view') or 'side', weapon_pose=body.get('weapon_pose') or 'side',
+                                      edit=bool(body.get('edit')))
+
+
 @app.get('/api/prompt/{action}')
 def prompt_preview(action: str):
     if action == 'portrait':
-        return {'text': pipeline.PORTRAIT_TMPL.format(desc='<你的一句话>', style=pipeline.DEFAULT_STYLE)}
+        return {'text': pipeline.PORTRAIT_TMPL.format(desc='<你的一句话>', style=pipeline.DEFAULT_STYLE,   # ⚑ 原先漏了 weapon ⇒ KeyError 500
+                                                      camera=pipeline.view_of('side')['portrait'], weapon=pipeline.WEAPON_POSE['side'])}
     if action not in pipeline.ACTIONS:
         raise HTTPException(404)
     return {'text': pipeline.build_prompt(action)}
@@ -381,5 +523,15 @@ def prompt_preview(action: str):
 if __name__ == '__main__':
     import uvicorn
     port = int(os.environ.get('ANIMPIPE_PORT', 8765))
-    print(f'⚑ anim-pipeline web  →  http://127.0.0.1:{port}   （任务目录 {pipeline.JOBS}）')
+    if os.environ.get('ANIMPIPE_WAIT_PORT'):            # ⚑ 网页重启拉起的：⚑ 等旧进程把端口放出来（最多 ~20s）
+        for _ in range(100):
+            with socket.socket() as s:
+                s.settimeout(0.2)
+                if s.connect_ex(('127.0.0.1', port)) != 0:
+                    break
+            time.sleep(0.2)
+    n_stale = pipeline.sweep_stale()                    # ⚑ 到这里才是唯一活着的服务 ⇒ 磁盘上还 running 的一定是上次没跑完的
+    if n_stale:                                         # ⚠ 别叫 _stale —— 会把上面那个函数覆盖成 int（2026-09-09 踩过）
+        print(f'⚠ 上次没跑完的任务 {n_stale} 个，已标为失败', flush=True)
+    print(f'⚑ anim-pipeline web  →  http://127.0.0.1:{port}   （任务目录 {pipeline.JOBS}）', flush=True)
     uvicorn.run(app, host='127.0.0.1', port=port, log_level='warning')

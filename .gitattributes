@@ -1,0 +1,2 @@
+# .bat 存的是 GBK + CRLF 字节（中文 Windows 的 cmd 只认这个），别做任何换行/编码转换
+*.bat -text

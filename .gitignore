@@ -8,6 +8,10 @@ out/
 _ref/
 web/jobs/
 
+# 一键安装放进来的 ffmpeg 二进制（tools/install_ffmpeg.py）
+tools/bin/
+tools/_ffmpeg_download.zip
+
 __pycache__/
 *.py[cod]
 .DS_Store

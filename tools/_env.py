@@ -30,18 +30,33 @@ def die(*lines):
     sys.exit(1)
 
 
+def _local_ffmpeg_dirs():
+    """⚑ 一键安装（tools/install_ffmpeg.py）会把 ffmpeg 放在 tools/bin，⚑ winget 装的在 %LOCALAPPDATA% 下 —— ⚑ 两处都不一定在 PATH 里。"""
+    import glob
+    here = os.path.dirname(os.path.abspath(__file__))
+    out = [os.path.join(here, 'bin')]
+    la = os.environ.get('LOCALAPPDATA')
+    if la:
+        out += glob.glob(os.path.join(la, 'Microsoft', 'WinGet', 'Packages', 'Gyan.FFmpeg*', 'ffmpeg-*', 'bin'))
+    return out
+
+
 def need_ffmpeg():
-    """⚑ ffmpeg ＋ ffprobe 都要 —— ⚠ 有些精简包只带 ffmpeg，⛔ 而这里两个都用。"""
+    """⚑ ffmpeg ＋ ffprobe 都要 —— ⚠ 有些精简包只带 ffmpeg，⛔ 而这里两个都用。
+    ⚑ PATH 里没有就看 tools/bin 和 winget 目录，有就塞进 PATH（⚑ 子进程 subprocess 靠 PATH 找）。"""
+    exe = '.exe' if os.name == 'nt' else ''
+    for d in _local_ffmpeg_dirs():
+        if os.path.exists(os.path.join(d, 'ffmpeg' + exe)) and d not in os.environ.get('PATH', ''):
+            os.environ['PATH'] = d + os.pathsep + os.environ.get('PATH', '')
     miss = [c for c in ('ffmpeg', 'ffprobe') if not shutil.which(c)]
     if not miss:
         return
     die(f'✗ 找不到 {" 和 ".join(miss)} —— ⚑ 这条链靠它抽帧，⛔ 不装跑不了',
         '',
+        '  一键     : python tools/install_ffmpeg.py     （或双击 安装.bat；网页「设置 → 环境」也有按钮）',
         '  Windows : winget install Gyan.FFmpeg      （或 scoop install ffmpeg）',
         '  macOS   : brew install ffmpeg',
-        '  Linux   : sudo apt install ffmpeg',
-        '',
-        '  ⚠ 装完**重开一个终端** —— ⚑ PATH 要刷新，⛔ 当前这个窗口里改不过来')
+        '  Linux   : sudo apt install ffmpeg')
 
 
 def need_file(path, what='文件', hint=''):
