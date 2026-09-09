@@ -135,10 +135,13 @@ ACTIONS = {
                          '全程不离开原位，不向任何方向移动，人物大小不变。')),
     'hurt': dict(label='受击', dur=2, res='480P', frames=4, pick='even', cell='224x256',
                  checks=[],
-                 # ⚑ 角色朝画面左 ⇒ 受击从左来、身体向右缩；⛔ 别写"上半身后仰"（MOTION_SYSTEM 第 5 条：会被画成转向镜头）
-                 motion=('受到来自面朝方向的一击：头和肩膀猛地向画面右侧缩一下，肩膀耸起，头低下，'
-                         '上半身向右侧弹开一小段，重心后坐、膝盖微弯；双脚原地不动；'
-                         '短暂停住；然后恢复到开头的站姿。手中的武器随手臂带动但不挥动。')),
+                 # ⚑ 角色朝画面左 ⇒ 受击从左来、身体向背后方向弹；⛔ 别写"上半身后仰"（MOTION_SYSTEM 第 5 条：会被画成转向镜头）
+                 # ⚠ 2026-09-09 实测（job 0909-213259）：写"头肩向右缩一下、重心后坐、膝盖微弯"⇒ 模型演成**下沉举刀的防御架势**；
+                 #   ⚑ 改成"被击退"的受力写法 + 明确禁止摆架势（⚠ 假设，待验证）
+                 motion=('被来自面朝方向的一记重击打中、整个人被击退：身体猛地向背后方向弹开半步、脚步向后踉跄，头随之向后一甩，'
+                         '头发、衣摆和飘带向面朝方向甩出（与身体运动方向相反），双臂被震得向前上方抬起、手掌张开，膝盖微弯、重心下沉；'
+                         '短暂停住；然后向前迈回原位，恢复到开头的站姿。'
+                         '不要摆出防御或进攻的架势，不要把武器举到身前，武器只随手臂被带动。')),
     'die':  dict(label='死亡', dur=5, res='480P', frames=6, pick='even', cell='320x256',
                  checks=[], last=False,
                  motion=('倒下死亡：身体先向画面右侧踉跄半步，膝盖弯曲跪倒，上半身前倾；'
@@ -238,14 +241,16 @@ LLM_SYSTEM = """你是 2D 游戏角色动画的提示词工程师。用户给一
 5. attack 必须是一次完整动作：蓄力 → 发力 → 停住 → 收回到开头站姿。命中时武器指向角色面朝方向。
 6. walk / run 都是原地循环动作，不位移；**如果角色持有武器，必须写明持武器手臂的摆动是有界的**："持武器的手臂随步伐小幅摆动，幅度约为空手那侧的一半；武器与前臂夹角不变、跟着手臂一起小幅摆动，尖端始终指向前下方，不抬到水平以上，不挥动、不举起"（实测：写"长剑划出弧线"模型就只演挥剑、腿不动；不写武器，模型就把武器画丢或变形；写"固定不动"模型不听、而且假 —— 关键是**幅度有上限、和步伐同周期**，否则循环点必跳）。腿是主角：抬腿幅度、交替、身体起伏。
 7. run 必须写"身体前倾"，并写清抬起那条腿的形态：**膝盖朝前、小腿向后折叠、脚跟贴近臀部，不伸直、不向前踢出**（实测：只写"膝盖抬到腰际"，模型就演成直腿侧踢）。头发衣摆向后飘，不是向上。
-8. idle 是原地待机：只有呼吸起伏和发丝衣摆轻微飘动，双脚双腿不动、武器不动。hurt 是受击：头肩向画面右侧缩一下、重心后坐，双脚原地，然后恢复站姿；⛔ 别写"上半身后仰"（会被画成转向镜头）。die 是死亡：踉跄 → 跪倒 → 侧向倒下 → 静止，**结尾停在倒下的姿势不回站姿**；⛔ 不写"地面"，写"倒在画面底部"。attack2 / attack3 是攻击连招的后两段，要与 attack 的剪影明显不同（横弧 / 竖劈 / 直刺）。
+8. idle 是原地待机：只有呼吸起伏和发丝衣摆轻微飘动，双脚双腿不动、武器不动。hurt 是受击：写成**「被击退」**——身体向背后方向弹开半步、脚步踉跄、头一甩、头发飘带向面朝方向甩出、双臂被震开，然后迈回恢复站姿；⛔ 别写"上半身后仰"（会被画成转向镜头）；⛔ 别写"缩身、蹲下、举武器"（实测会被演成防御架势或闪避），并明确写"不要摆出防御或进攻的架势"。die 是死亡：踉跄 → 跪倒 → 侧向倒下 → 静止，**结尾停在倒下的姿势不回站姿**；⛔ 不写"地面"，写"倒在画面底部"。attack2 / attack3 是攻击连招的后两段，要与 attack 的剪影明显不同（横弧 / 竖劈 / 直刺）。
 9. 用户会附上每个动作的「基准运动段」（经过实测的模板）。你的任务是在**保留其全部约束句**（原地不位移、武器保持原位、结尾回站姿之类）的前提下，结合角色外观把它写得更具体：点名这个角色的武器、发型、衣摆、配饰在动作中怎么动。不要删约束，不要引入模板里没有的新动作。
 只输出 JSON，不要解释。"""
 
 
 VLM_SYSTEM = """你是 2D 游戏动作动画的挑帧师。你会看到一张联络表：从一段视频等距抽出的格子，每格烧着帧号（f001 这种，1 起）。
-输出 JSON：{"frames":[帧号(整数)...], "collapse":false, "thin_weapon":[帧号...], "notes":"一句话"}
+输出 JSON：{"is_action":true, "frames":[帧号(整数)...], "collapse":false, "thin_weapon":[帧号...], "notes":"一句话"}
 规则（全部来自实测）：
+0. is_action：画面里演的到底是不是用户说的那个动作。攻击必须看到挥击/刺出；**受击必须看到被击中的受力反应**（身体被推开、头一甩、手臂被震开）——
+   只是下沉摆架势、把武器举到身前防御、侧身闪避，都是 false（实测：模型爱把受击演成防御架势）；死亡必须倒下并静止。
 1. frames 选恰好 N 个、递增、只能从图里出现的帧号里选。要表达完整动作。
    攻击：蓄力 → 发力 → 命中（停住）→ 收招；重心放在命中那一段，别选成"举刀×3 + 命中×1"。命中帧的武器/拳头必须指向角色面朝的方向；只有蓄力帧可以朝后。
    受击：站姿 → 被击中后缩 → 恢复站姿。死亡：站姿 → 踉跄/跪倒 → 倒下 → 静止，**最后一帧必须是倒下静止的姿势**。
@@ -284,11 +289,12 @@ def _vision_chat(system: str, text: str, png_path, model: str, log, timeout: int
     base = (c['base'] or '').rstrip('/')
     model = model or c.get('vision_model') or c.get('model') or LLM_DEFAULT_MODEL
     b64 = base64.b64encode(Path(png_path).read_bytes()).decode()
+    mime = 'image/jpeg' if str(png_path).lower().endswith(('.jpg', '.jpeg')) else 'image/png'
     body = {'model': model, 'temperature': temperature, 'messages': [
         {'role': 'system', 'content': system},
         {'role': 'user', 'content': [
             {'type': 'text', 'text': text},
-            {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,' + b64}}]}]}
+            {'type': 'image_url', 'image_url': {'url': f'data:{mime};base64,' + b64}}]}]}
     req = urllib.request.Request(f'{base}/chat/completions', data=json.dumps(body).encode(),
                                  headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c['key']})
     log(f'  → {model} @ {base}  图 {len(b64) // 1024} KB  超时 {timeout}s')   # ⚑ 卡住时至少知道在等谁
@@ -359,6 +365,7 @@ def vlm_pick(png_path, motion: str, n: int, total: int, model: str, log, timeout
                 out.append(int(s))
         return sorted(set(out))
     return {'model': model, 'frames': ints(d.get('frames')), 'collapse': bool(d.get('collapse')),
+            'is_action': bool(d.get('is_action', True)),
             'thin_weapon': ints(d.get('thin_weapon')), 'notes': str(d.get('notes', ''))[:200], 'raw': txt[:600]}
 
 
@@ -396,6 +403,7 @@ MOTION_SYSTEM = """你是 2D 游戏角色动作动画的提示词工程师。用
 2. 该动的部位一个个点名并给幅度（"幅度清晰可见"、"划出清晰的弧线"）。不写"其余保持不动"——外层模板负责。
 3. 不写转速、不写"每秒"；不写"砸在地面上"这类会引入地面的词，只写方向。
 4. 一次性动作：蓄力 → 发力 → 停住 → 收回到开头站姿；命中时武器/拳头指向角色面朝方向。走路：原地踏步、双腿交替、双臂摆动、身体起伏，不位移。
+   受击写成"被击退"：身体向背后方向弹开半步、头一甩、头发飘带向面朝方向甩出、双臂被震开，再迈回站姿；⛔ 别写缩身/蹲下/举武器（会演成防御架势），要明确写"不要摆架势"。
    奔跑：原地、身体前倾，抬起那条腿**膝盖朝前、小腿向后折叠、脚跟贴近臀部，不伸直、不向前踢出**（实测：只写"抬膝到腰际"会演成直腿侧踢）；头发衣摆向后飘。
    走路和奔跑如果角色持有武器，必须写有界的摆动："持武器的手臂随步伐小幅摆动，幅度约为空手那侧的一半；武器与前臂夹角不变，尖端始终指向前下方，不抬到水平以上，不挥动、不举起"——不写，模型就把武器画丢或变形；写"固定不动"假而且模型不听。
 5. 侧视图里别写"上半身后仰"（会被画成转向镜头），用"下蹲、双脚原地"这类中性描述。"""
@@ -789,9 +797,10 @@ class Job:
         at_arg, verdict = None, None
         # ⚑ 试运行承诺「不调任何 API」⇒ ⛔ demo 模式不叫 VLM（2026-09-09 抓到：火柴人也被送去 DeepSeek 看了一眼）
         if self.state['options'].get('vlm_pick') and self.state['mode'] == 'generate':
-            vc = f'work/anim/{a}_vlm联络表.png'
+            # ⚑ 给 VLM 看的：24 格、缩到 2560 宽、JPEG —— ⚑ 从 5.5 MB 降到几百 KB（原来 DeepSeek 要 92s）；帧号缩完再烧、字号加大
+            vc = f'work/anim/{a}_vlm联络表.jpg'
             self.step(f'{a}.vcontact', f'{who}：密联络表（给 VLM 看，24 格）',
-                      [TOOLS / '_contact.py', mp4, '--n=24', '--cols=6', f'--out={vc}'], must=False)
+                      [TOOLS / '_contact.py', mp4, '--n=24', '--cols=6', '--maxw=2560', f'--out={vc}'], must=False)
             is_loop = A.get('pick') == 'loop'
             self.log(f'\n───── {who}：VLM {"质检（是不是这个动作 / 有没有崩）" if is_loop else "挑帧 / 判崩坏"}')
             if is_loop:
@@ -809,10 +818,12 @@ class Job:
                     elif not res['is_action']:
                         verdict = f'演的不是「{who}」（{res["notes"]}）'
                 else:
-                    self.log(f'  ⚑ {res["model"]}：frames={res["frames"]} collapse={res["collapse"]} '
+                    self.log(f'  ⚑ {res["model"]}：is_action={res.get("is_action", True)} frames={res["frames"]} collapse={res["collapse"]} '
                              f'thin={res["thin_weapon"]} —— {res["notes"]}')
                     if res['collapse']:
                         verdict = f'角色崩坏（{res["notes"]}）'
+                    elif not res.get('is_action', True):          # ⚑ 2026-09-09：受击被演成防御架势，VLM 备注写了「闪避」却没判
+                        verdict = f'演的不是「{who}」（{res["notes"]}）'
                     if len(res['frames']) == n_frames:
                         at_arg = '--at=' + ','.join(str(v) for v in res['frames'])
                     else:

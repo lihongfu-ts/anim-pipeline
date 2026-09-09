@@ -21,7 +21,7 @@ import os
 import subprocess
 import sys
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 try:                                                # Windows 控制台默认 GBK
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
@@ -54,8 +54,11 @@ def main() -> None:
     need_ffmpeg()
     need_file(mp4, '视频', 'gen_video.py 出的片默认落在 work/anim/')
     n, cols = opt('--n', 12, int), opt('--cols', 4, int)
+    # ⚑ --maxw：整张联络表的最大宽度 —— ⚑ 给 VLM 看的用这个缩小（⚠ 2026-09-09 实测：24 格 3840×2560 的 PNG base64 后 5.5 MB，
+    #   DeepSeek 要 92s；⚑ 模型内部反正会降采样，送原图只是白等）。⚑ 缩的是**每格**，帧号在缩完之后才烧 ⇒ 字不会跟着缩没
+    maxw = opt('--maxw', 0, int)
     tag = os.path.splitext(os.path.basename(mp4))[0]
-    out = opt('--out', os.path.join(WORK, f'{tag}_联络表.png'))
+    out = opt('--out', os.path.join(WORK, f'{tag}_联络表.png'))     # ⚑ 后缀 .jpg 就存 JPEG（体积再小一个量级）
 
     tmp = os.path.join(WORK, '_tmp_contact_' + tag)
     os.makedirs(tmp, exist_ok=True)
@@ -69,13 +72,24 @@ def main() -> None:
     # ⚑ 等距取 n 帧（⚑ 含首尾）—— ⚠ 首尾是**连招衔接**要看的两帧，⛔ 不能漏
     idx = [round(i * (len(fs) - 1) / max(n - 1, 1)) for i in range(min(n, len(fs)))]
     cells = []
+    scale = 1.0
+    if maxw:
+        w0 = Image.open(os.path.join(tmp, fs[idx[0]])).size[0]
+        scale = min(1.0, maxw / (w0 * min(cols, len(idx))))
+    try:                                                    # ⚑ Pillow ≥ 10.1 的默认字体可以给字号；⚑ 老版本退回小字
+        font = ImageFont.load_default(size=26 if maxw else 14)
+    except Exception:
+        font = None
     for i in idx:
         im = Image.open(os.path.join(tmp, fs[i])).convert('RGB')
+        if scale < 1.0:
+            im = im.resize((max(1, round(im.width * scale)), max(1, round(im.height * scale))), Image.LANCZOS)
         d = ImageDraw.Draw(im)
         # ⚑ 帧号是 **ffmpeg 的 1-based 序号**，⚑ 和 vid2anim 的 --at= 用同一套编号
         t = f'f{i + 1:03d}'
-        d.rectangle([0, 0, 92, 34], fill=(0, 0, 0))
-        d.text((8, 8), t, fill=(255, 230, 60))
+        bw, bh = (108, 40) if maxw else (92, 34)
+        d.rectangle([0, 0, bw, bh], fill=(0, 0, 0))
+        d.text((8, 6), t, fill=(255, 230, 60), font=font)
         cells.append(im)
 
     w, h = cells[0].size
@@ -84,7 +98,10 @@ def main() -> None:
     for i, c in enumerate(cells):
         sheet.paste(c, (i % cols * w, i // cols * h))
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    sheet.save(out)
+    if out.lower().endswith(('.jpg', '.jpeg')):
+        sheet.save(out, quality=88)
+    else:
+        sheet.save(out)
 
     for f in os.listdir(tmp):
         os.remove(os.path.join(tmp, f))
