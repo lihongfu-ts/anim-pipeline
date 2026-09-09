@@ -166,7 +166,9 @@ python web/server.py                     # → http://127.0.0.1:8765
 - 网页端：「凭据」页签
 - dsh 插件：插件设置里填，插件以 `DASHSCOPE_API_KEY` 等环境变量注给 Python（[dsh-plugin/README.md](dsh-plugin/README.md)）
 
-只有万相是**必需**的（出片定稿唯一能钉首尾帧）；已有立绘就不需要中转站。万相的 baseUrl 必须是独立业务空间专属域名，公共域名恒 401。
+只有万相是**必需**的（出片定稿唯一能钉首尾帧）；已有立绘就不需要中转站。
+**拿万相 key**：<https://platform.qianwenai.com/try-ai?scene=video> → 「万相 3.0 - 视频生成」→ 右上角「获取 API Key」→ `sk-ws-` 开头的 key，
+baseUrl 用公共域名 `https://dashscope.aliyuncs.com/api/v1`（实测可用；普通 `sk-` key 才需要业务空间专属域名）。
 
 ---
 

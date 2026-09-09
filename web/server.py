@@ -44,7 +44,7 @@ if _stale:
 
 PROVIDERS = ['relay', 'wan', 'ark', 'glm', 'minimax', 'llm']
 DEFAULT_BASE = {
-    'relay': '', 'wan': '', 'ark': 'https://ark.cn-beijing.volces.com/api/v3',
+    'relay': '', 'wan': 'https://dashscope.aliyuncs.com/api/v1', 'ark': 'https://ark.cn-beijing.volces.com/api/v3',
     'glm': 'https://open.bigmodel.cn/api/paas/v4', 'minimax': 'https://api.minimaxi.com',
     'llm': 'https://open.bigmodel.cn/api/paas/v4',
 }
@@ -173,8 +173,10 @@ def probe_cred(name: str, body: dict = None):
                 'vision': vcode == 200, 'vision_model': vmodel, 'vision_detail': None if vcode == 200 else vresp,
                 'models': models[:60], 'notes': notes}
     if name == 'wan':
-        if 'ws-' not in base:
-            notes.append('⚠ baseUrl 不像「独立业务空间」专属域名（应形如 https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1）；公共域名恒 401')
+        # ⚑ 实测（2026-09-09）：`sk-ws-` 开头的业务空间 key 在公共域名 dashscope.aliyuncs.com 上直接 200；
+        #   ⚑ 文档 §3.6「公共域名恒 401」是普通 key 的情况 ⇒ ⚑ 只在 key 不是 sk-ws- 时提醒专属域名
+        if 'ws-' not in base and not key.startswith('sk-ws-'):
+            notes.append('⚠ 普通 key 需要「独立业务空间」专属域名（https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1）；sk-ws- 开头的业务空间 key 公共域名可用')
         code, resp = _http('GET', f'{base}/tasks/probe-0000', key)
         if code in (401, 403):
             return {'ok': False, 'msg': f'HTTP {code} —— key 或域名不对', 'detail': resp, 'notes': notes}

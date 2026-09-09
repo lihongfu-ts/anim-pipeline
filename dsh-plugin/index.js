@@ -37,7 +37,7 @@ export const Config = !z ? undefined : z.object({
   repoDir: z.string().description('anim-pipeline 仓库目录（含 tools/ 和 mcp/）。留空 = 本插件所在仓库'),
   workDir: z.string().description('产物目录（ANIMPIPE_ROOT）。留空 = 当前会话工作目录；产物落 work/anim 与 out/anim'),
   dashscopeApiKey: z.string().role('secret').description('万相（阿里云百炼）apiKey —— 出片定稿唯一必需的一家'),
-  dashscopeBaseUrl: z.string().description('⚠ 必须是「独立业务空间」专属域名：https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1；公共域名恒 401'),
+  dashscopeBaseUrl: z.string().default('https://dashscope.aliyuncs.com/api/v1').description('sk-ws- 开头的业务空间 key 用公共域名即可（实测）；普通 key 要填专属域名 https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1'),
   dashscopeWorkspaceId: z.string().description('万相业务空间 id'),
   relayApiKey: z.string().role('secret').description('出立绘用的 OpenAI 兼容中转站 key（gpt-image 类）；已有立绘可不填'),
   relayBaseUrl: z.string().description('中转站 base url，形如 https://xxx/v1'),

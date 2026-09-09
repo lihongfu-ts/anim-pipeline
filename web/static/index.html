@@ -417,7 +417,7 @@ $('#extZip').onclick=async()=>{const f=$('#extFile').files[0];if(!f)return;const
   const r=await fetch('/api/extract',{method:'POST',body:fd});const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='frames.zip';a.click()};
 
 // ───────── 凭据
-const HINT={wan:'必须是「独立业务空间」专属域名：https://ws-xxxxxxxx.cn-beijing.maas.aliyuncs.com/api/v1 —— 公共域名 dashscope.aliyuncs.com 恒 401 且提示 key 格式不对，别被骗了。域名在控制台导出的 apiKey CSV 里，字段 dashScope。',
+const HINT={wan:'拿 key：platform.qianwenai.com/try-ai?scene=video → 万相 3.0-视频生成 → 右上角「获取 API Key」。sk-ws- 开头的业务空间 key：baseUrl 留空即用公共域名 https://dashscope.aliyuncs.com/api/v1（实测可用）。普通 key 必须填「独立业务空间」专属域名 https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1（公共域名 401 且提示 key 格式不对）；域名在控制台导出的 apiKey CSV 里，字段 dashScope。',
   relay:'OpenAI 兼容中转站，形如 https://xxx/v1。保存后点「检查」能列出它提供的图像模型。',glm:'默认 https://open.bigmodel.cn/api/paas/v4。「检查」会用 1 token 探一下上面填的 LLM 模型是否可用。',
   ark:'默认 https://ark.cn-beijing.volces.com/api/v3。「检查」列出 seedance 系列可用模型。',minimax:'默认 https://api.minimaxi.com',
   llm:'任意 OpenAI 兼容端点（智谱 https://open.bigmodel.cn/api/paas/v4 · DeepSeek https://api.deepseek.com · 中转站 https://xxx/v1）。只用于把一句话扩成四段提示词，和出片用的 glm 分开配。「检查」会用 1 token 探 model 能不能聊。'};

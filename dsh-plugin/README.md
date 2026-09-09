@@ -28,6 +28,15 @@ dsh plugin --profile web add dsh-anim-pipeline
 技能：`npx skills add https://github.com/lihongfu-ts/anim-pipeline`（仓库里 `skills/anim-pipeline/SKILL.md`），
 或把这个目录拷到 dsh 的 skills 目录。**没有这份 skill，工具还在，但模型不知道什么时候该用哪把尺子。**
 
+## 怎么拿到万相的 key（唯一必需的一家）
+
+1. 打开 <https://platform.qianwenai.com/try-ai?scene=video>，选「万相 3.0 - 视频生成」
+2. 点右上角 **「获取 API Key」**，复制得到的 key（`sk-ws-` 开头）
+3. `baseUrl` 用页面示例里那个公共域名 `https://dashscope.aliyuncs.com/api/v1`（`sk-ws-` key 实测直接可用），`workspaceId` 留空
+4. 填进去后点「检查」——返回「认证通过」就行（万相没有模型列表接口，只能探到这里）
+
+单价（2026-09）：480P / 2s ≈ ¥0.40，480P / 5s ≈ ¥1.05，720P / 5s ≈ ¥2.10。一套「走路 + 攻击」约 ¥1.5。
+
 ## key 配在哪（三种，按优先级）
 
 `tools/_creds.py` 的查找顺序：**环境变量 → `~/.gamegen/creds.json` → 当前目录 `.env` / `config.json`**。插件对应三种配法：
@@ -41,8 +50,9 @@ dsh plugin --profile web add dsh-anim-pipeline
 插件设置里填的 key 以上面那组环境变量注给 Python 子进程；留空的项退回用户目录那份。
 `python tools/_creds.py` 能报告"现在配了哪家、能做哪一步、缺了会怎样"。
 
-> ⚠ 万相的 `baseUrl` 必须是「独立业务空间」专属域名 `https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1`——
-> 公共域名恒 401 且提示"key 格式不对"，极容易误判成 key 有问题。域名在控制台导出的 apiKey CSV 里，字段 `dashScope`。
+> 万相的 `baseUrl`：`sk-ws-` 开头的业务空间 key 用公共域名 `https://dashscope.aliyuncs.com/api/v1` 即可（2026-09 实测 200）。
+> 普通 key 必须填「独立业务空间」专属域名 `https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1`——公共域名 401 且提示"key 格式不对"，
+> 极容易误判成 key 有问题。域名在控制台导出的 apiKey CSV 里，字段 `dashScope`。
 
 > 插件设置的值会写进 profile 的 `cordis.patch.yml`（明文）。介意的话用第二种。
 
