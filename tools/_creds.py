@@ -137,7 +137,8 @@ def get(name):
     d = next((user[n] for n in names if user.get(n)), None)
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
-                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), 'vision_model': d.get('vision_model', ''), '_from': 'user'}
+                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), 'vision_model': d.get('vision_model', ''),
+                'price': d.get('price'), '_from': 'user'}   # ⚑ price：⚑ 用户买了包的话按包价记账（⚑ 如智谱 ¥10/100 次）
     # ③ 项目（⚑ 向后兼容）
     if name == 'relay':
         e = proj.get('_dotenv', {})

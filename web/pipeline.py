@@ -42,7 +42,15 @@ ZHIPU_PRICE = {'cogvideox-flash': 0.0, 'cogvideox-3': 1.0, 'vidu2-image': 1.25, 
 
 def video_price(provider: str, res: str, dur: int, model: str = '') -> float:
     if provider == 'zhipu':
-        return ZHIPU_PRICE.get(model or VIDEO_PROVIDERS['zhipu']['model'], 1.0)
+        model = model or VIDEO_PROVIDERS['zhipu']['model']
+        c = _creds.get('glm')
+        # ⚑ 凭据里填了 price（⚑ 买了包：如 ¥10/100 次 ⇒ 0.10）且模型对得上 ⇒ 按包价记
+        if c and c.get('price') not in (None, '') and (not c.get('model') or c['model'] == model):
+            try:
+                return float(c['price'])
+            except (TypeError, ValueError):
+                pass
+        return ZHIPU_PRICE.get(model, 1.0)
     if provider != 'dashscope':
         return 0.0                          # ⚑ ark 免费额度 / minimax 另计（未接入计价）
     if (provider, res, dur) in PRICE_VIDEO:
@@ -53,7 +61,7 @@ def video_price(provider: str, res: str, dur: int, model: str = '') -> float:
 # ⚑ 各家默认模型（⚑ 与 gen_video.py 的默认一致；⚠ 模型名会漂，⚑ 网页「凭据 → 检查」能列出可用的）
 VIDEO_PROVIDERS = {
     'dashscope': dict(label='万相（定稿，唯一能钉首尾帧）', model='wan3.0-video', paid=True),
-    'zhipu':     dict(label='智谱（cogvideox-flash 免费·若仍可用；cogvideox-3 ¥1/次·首尾帧；vidu2-start-end ¥1.25）', model='cogvideox-flash', paid=False),
+    'zhipu':     dict(label='智谱 CogVideoX-3（标价 ¥1/次，买包约 ¥0.1；支持首尾帧）', model='cogvideox-3', paid=True),
     'ark':       dict(label='火山 seedance（免费额度，会重画角色）', model='doubao-seedance-1-0-pro-250528', paid=False),
     'minimax':   dict(label='MiniMax（另计费）', model='MiniMax-H3', paid=False),
 }

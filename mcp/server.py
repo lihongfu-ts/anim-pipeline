@@ -62,7 +62,7 @@ def doctor() -> dict:
             'creds': {k: bool(v) for k, v in have.items()}, 'can': can,
             'prices': {'portrait_yuan': pipeline.PRICE_PORTRAIT,
                        'video_yuan': {f'{p}|{r}|{d}s': v for (p, r, d), v in pipeline.PRICE_VIDEO.items()}},
-            'rules': '定稿用 dashscope（唯一能钉首尾帧）；zhipu 免费只能探静止型；ark 免费但会重画角色只能抽姿势；一次一发；每动作最多 2 发'}
+            'rules': '定稿用 dashscope（480P/2s ¥0.40，钉首尾帧）；zhipu cogvideox-3 也支持首尾帧（标价 ¥1/次，买包约 ¥0.1）；ark 免费额度但会重画角色只能抽姿势；一次一发；每动作最多 2 发'}
 
 
 @tool
