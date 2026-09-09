@@ -147,6 +147,29 @@ python web/server.py                     # → http://127.0.0.1:8765
 
 ---
 
+## 给 agent 用：三种接法，同一份工具
+
+| 形态 | 谁当脑子 | 怎么接 | 适合谁 |
+|---|---|---|---|
+| **DeepSeek Harness 插件** `dsh-plugin/` | dsh 里的 V4 Pro（多模态，自己看联络表） | `dsh plugin --profile web add ./anim-pipeline/dsh-plugin` + `npx skills add https://github.com/lihongfu-ts/anim-pipeline` | 大陆用户，一个 DeepSeek key |
+| **MCP server** `mcp/server.py` | 任何支持 MCP 的 harness（Claude Code / Cline / Continue / dsh） | `pip install mcp` → `claude mcp add anim-pipeline -- python D:/anim-pipeline/mcp/server.py` | 已有 harness 的人 |
+| **自带大脑的网页端** `web/` | `web/agent.py`（纯 JSON 协议，DeepSeek / GLM / 任意 OpenAI 兼容端点） | `python web/server.py` → Agent 页签 | 不想装 harness、要看过程和记账的人 |
+
+三种形态背后是同一份 Python：`mcp/server.py` 既是 MCP server，也是 `python mcp/server.py call <工具> < 参数.json` 的 CLI（dsh 插件就是这么调它的）。
+判断力在 [skills/anim-pipeline/SKILL.md](skills/anim-pipeline/SKILL.md)——提示词铁律、provider 分工、读数路由、花钱纪律——**工具给手，skill 给脑**。
+
+### key 配在哪（一处配、三种形态通用）
+
+`tools/_creds.py` 的查找顺序：**环境变量 → `~/.gamegen/creds.json` → 当前目录 `.env` / `config.json`**。
+
+- 命令行：`python tools/_creds.py --set=wan`（交互式，写用户目录，不进仓库）；`python tools/_creds.py` 报告缺哪家、能做哪一步
+- 网页端：「凭据」页签
+- dsh 插件：插件设置里填，插件以 `DASHSCOPE_API_KEY` 等环境变量注给 Python（[dsh-plugin/README.md](dsh-plugin/README.md)）
+
+只有万相是**必需**的（出片定稿唯一能钉首尾帧）；已有立绘就不需要中转站。万相的 baseUrl 必须是独立业务空间专属域名，公共域名恒 401。
+
+---
+
 ## 工具清单
 
 | 工具 | 作用 |

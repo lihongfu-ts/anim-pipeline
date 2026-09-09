@@ -1,0 +1,17 @@
+# ⚑ 这一层会在 profile 把本包列进 bundles 时叠上去。⚑ patch 是按 id 整体替换，⛔ 不深合并 ——
+#   ⚑ 用户改配置时在自己的 cordis.patch.yml 里把这一行**整条**重写（含 name），⚑ 而不是只写 config 的某个键。
+- insert:
+    - id: anim-pipeline
+      name: dsh-anim-pipeline
+      config:
+        # ⚑ key 建议填在 dsh 的插件设置里（⚑ 就是这里的 config），⚑ 会以环境变量注给 Python 子进程；
+        #   ⚑ 留空则退回 ~/.gamegen/creds.json（python tools/_creds.py --set=wan 写的那份）。
+        python: python
+        workDir: ""
+        dashscopeApiKey: ""
+        dashscopeBaseUrl: ""
+        dashscopeWorkspaceId: ""
+        relayApiKey: ""
+        relayBaseUrl: ""
+        zhipuApiKey: ""
+        arkApiKey: ""

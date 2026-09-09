@@ -1,0 +1,16 @@
+{
+  "name": "dsh-anim-pipeline",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness 插件：一句话 → 2D 角色立绘 → 走路/攻击序列帧图集（AI 出片 + 抽帧抠图对齐 + 数值验收）",
+  "type": "module",
+  "main": "index.js",
+  "files": ["index.js", "cordis.patch.yml", "README.md"],
+  "license": "MIT",
+  "repository": "https://github.com/lihongfu-ts/anim-pipeline",
+  "keywords": ["deepseek-harness", "dsh", "sprite-sheet", "2d-animation", "ai-video"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*",
+    "@deepseek-ai/schemastery": "*"
+  }
+}
