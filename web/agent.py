@@ -196,13 +196,13 @@ class Run:
             have, can = _creds.probe()
             return {'mode': self.state['mode'], 'ffmpeg': bool(__import__('shutil').which('ffmpeg')),
                     'creds': {k: bool(v) for k, v in have.items()}, 'can': can,
-                    'prices': {'portrait': pipeline.PRICE_PORTRAIT, 'video': {f'{p}|{r}|{dd}': v for (p, r, dd), v in pipeline.PRICE_VIDEO.items()}},
+                    'prices': {'portrait': pipeline.portrait_price(), 'video': {f'{p}|{r}|{dd}': v for (p, r, dd), v in pipeline.PRICE_VIDEO.items()}},
                     'budget': self.state['budget'], 'spent': self.state['cost']['spent'],
                     'portrait': self.state['artifacts'].get('portrait')}
         if name in ('gen_portrait', 'edit_portrait'):
             if self.state['mode'] != 'generate':
                 return {'error': 'demo 模式没有立绘这一步，直接 gen_video'}
-            g = self._paid_gate(name, pipeline.PRICE_PORTRAIT, '角色', args)
+            g = self._paid_gate(name, pipeline.portrait_price(), '角色', args)
             if g:
                 return g
             c = _creds.get('relay')
@@ -212,7 +212,8 @@ class Run:
             im = args.get('model') or c.get('model')          # ⚑ 图像模型名各家中转站不同，⚑ 从 relay 凭据取
             if name == 'gen_portrait':
                 item = {'id': 1, 'name': 'portrait', 'desc': '立绘', 'size': '1024x1024', 'transparent': False, 'quality': 'medium',
-                        'prompt': pipeline.PORTRAIT_TMPL.format(desc=str(args.get('desc', '')).strip('。 '), style=pipeline.DEFAULT_STYLE)}
+                        'prompt': pipeline.PORTRAIT_TMPL.format(desc=str(args.get('desc', '')).strip('。 '), style=pipeline.DEFAULT_STYLE,
+                                                                weapon=pipeline.WEAPON_POSE.get(args.get('weapon_pose', 'side'), pipeline.WEAPON_POSE['side']))}
                 (d / 'prompts.json').write_text(json.dumps({'items': [item]}, ensure_ascii=False), encoding='utf-8')
                 code, out = self.sh([TOOLS / 'artgen' / 'gen.py', '1', '--force'] + (['--model', im] if im else []), '出立绘', env)
             else:
@@ -221,9 +222,9 @@ class Run:
                                     + ([f'--model={im}'] if im else []), '图生图改版', env)
             if code != 0 or not (d / 'out' / '01_portrait.png').exists():
                 return {'error': '出图失败', 'log': out[-800:]}
-            self._spend('角色', pipeline.PRICE_PORTRAIT)
+            self._spend('角色', pipeline.portrait_price())
             self.state['artifacts']['portrait'] = 'out/01_portrait.png'
-            return {'portrait': 'out/01_portrait.png', 'cost': pipeline.PRICE_PORTRAIT}
+            return {'portrait': 'out/01_portrait.png', 'cost': pipeline.portrait_price()}
         if name == 'make_liubai':
             src = args.get('src') or self.state['artifacts'].get('portrait')
             if not src:

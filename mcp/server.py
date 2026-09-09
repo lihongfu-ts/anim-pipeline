@@ -60,25 +60,27 @@ def doctor() -> dict:
     have, can = _creds.probe()
     return {'root': str(root()), 'ffmpeg': bool(shutil.which('ffmpeg')),
             'creds': {k: bool(v) for k, v in have.items()}, 'can': can,
-            'prices': {'portrait_yuan': pipeline.PRICE_PORTRAIT,
+            'prices': {'portrait_yuan': pipeline.portrait_price(),
                        'video_yuan': {f'{p}|{r}|{d}s': v for (p, r, d), v in pipeline.PRICE_VIDEO.items()}},
             'rules': '定稿用 dashscope（480P/2s ¥0.40，钉首尾帧）；zhipu cogvideox-3 也支持首尾帧（标价 ¥1/次，买包约 ¥0.1）；ark 免费额度但会重画角色只能抽姿势；一次一发；每动作最多 2 发'}
 
 
 @tool
-def gen_portrait(desc: str, style: str = '') -> dict:
-    """出立绘（收费 ¥0.15/发，走 relay 中转站）。desc 只写角色外观，不写雾气/光晕/特效。返回 portrait 路径。"""
+def gen_portrait(desc: str, style: str = '', weapon_pose: str = 'side') -> dict:
+    """出立绘（收费 ¥0.15/发，走 relay 中转站）。desc 只写角色外观，不写雾气/光晕/特效。
+    weapon_pose：across 横持身前（攻击最稳）| side 垂于身侧（跑步/走路自然，默认）| back 收在背后（跑步最自然，攻击得先拔剑）。"""
     c = _creds.get('relay')
     if not c:
         return {'error': '没配 relay（中转站）'}
     item = {'id': 1, 'name': 'portrait', 'desc': '立绘', 'size': '1024x1024', 'transparent': False, 'quality': 'medium',
-            'prompt': pipeline.PORTRAIT_TMPL.format(desc=desc.strip('。 '), style=style or pipeline.DEFAULT_STYLE)}
+            'prompt': pipeline.PORTRAIT_TMPL.format(desc=desc.strip('。 '), style=style or pipeline.DEFAULT_STYLE,
+                                                    weapon=pipeline.WEAPON_POSE.get(weapon_pose, pipeline.WEAPON_POSE['side']))}
     (root() / 'prompts.json').write_text(json.dumps({'items': [item]}, ensure_ascii=False), encoding='utf-8')
     im = c.get('model')                                   # ⚑ 图像模型名从 relay 凭据取（各家中转站不同）
     code, out = sh([TOOLS / 'artgen' / 'gen.py', '1', '--force'] + (['--model', im] if im else []),
                    {'OPENAI_API_KEY': c['key'], 'OPENAI_BASE_URL': c['base']})
     ok = code == 0 and (root() / 'out' / '01_portrait.png').exists()
-    return {'portrait': 'out/01_portrait.png', 'cost_yuan': pipeline.PRICE_PORTRAIT} if ok else {'error': out[-800:]}
+    return {'portrait': 'out/01_portrait.png', 'cost_yuan': pipeline.portrait_price()} if ok else {'error': out[-800:]}
 
 
 @tool
@@ -91,7 +93,7 @@ def edit_portrait(src: str, instruction: str) -> dict:
     im = c.get('model')
     code, out = sh([TOOLS / 'artgen' / 'edit.py', src, 'out/01_portrait.png', '--promptfile=prompt_edit.txt'] + ([f'--model={im}'] if im else []),
                    {'OPENAI_API_KEY': c['key'], 'OPENAI_BASE_URL': c['base']})
-    return {'portrait': 'out/01_portrait.png', 'cost_yuan': pipeline.PRICE_PORTRAIT} if code == 0 else {'error': out[-800:]}
+    return {'portrait': 'out/01_portrait.png', 'cost_yuan': pipeline.portrait_price()} if code == 0 else {'error': out[-800:]}
 
 
 @tool

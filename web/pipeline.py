@@ -25,7 +25,18 @@ sys.path.insert(0, str(TOOLS))
 import _creds  # noqa: E402
 
 # ─────────────────────────────── 单价（《AI角色动画管线.md》§8.1，2026-09 口径，⚠ 会漂）
-PRICE_PORTRAIT = 0.15                       # ⚑ gpt-image 类中转，一发
+PRICE_PORTRAIT = 0.15                       # ⚑ gpt-image 类中转标价（文档 §8.1）；⚑ 各家不同 ⇒ 用 portrait_price()
+
+
+def portrait_price() -> float:
+    """⚑ 出图单价：⚑ relay 凭据里填了 price 就按它（⚑ 用户那家 gpt-image-2.5 是 ¥0.05/张），⚑ 否则标价。"""
+    c = _creds.get('relay')
+    if c and c.get('price') not in (None, ''):
+        try:
+            return float(c['price'])
+        except (TypeError, ValueError):
+            pass
+    return PRICE_PORTRAIT
 PRICE_VIDEO = {                             # ⚑ (provider, 分辨率, 秒) → 元
     ('dashscope', '480P', 2): 0.40,
     ('dashscope', '480P', 5): 1.05,
@@ -99,7 +110,13 @@ ACTIONS = {
                  checks=['move'],
                  motion=('原地踏步走路：双腿交替前后迈步，抬腿幅度清晰可见；空着的那只手臂随步伐前后自然摆动；'
                          '身体随步伐有轻微的上下起伏；头发和衣摆随动作摆动。'
-                         '手中的武器保持横在身前原位，不挥动、不转动、不举起。'
+                         '手中的武器保持在原来的持握位置，不挥动、不转动、不举起。'
+                         '全程不离开原位，不向任何方向移动，人物大小不变。')),
+    'run':  dict(label='奔跑', dur=2, res='480P', frames=6, pick='loop', cell='224x256',
+                 checks=['move'],
+                 motion=('原地大步奔跑：身体明显前倾，双腿交替大幅蹬地抬膝，抬腿幅度清晰可见，有短暂的双脚离地瞬间；'
+                         '双臂随步伐大幅前后摆动，肘部弯曲；头发和衣摆向后大幅飘起。'
+                         '手中的武器保持在原来的持握位置，随手臂自然摆动但不挥动、不举起。'
                          '全程不离开原位，不向任何方向移动，人物大小不变。')),
     'attack': dict(label='攻击', dur=5, res='480P', frames=6, pick='even', cell='384x256',
                    checks=['blade', 'anim'],
@@ -123,11 +140,21 @@ PROMPT_TAIL = (
     '严格保持原图的画风、线条和配色。'
 )
 
-# ⚑ 立绘提示词（文档 §1.2）：刀横在身前、别写雾气光晕、底色给中性灰
+# ⚑ 持武器姿势（⚑ 用户 2026-09-09 提出：横持适合攻击，⚠ 但要做奔跑就不自然）
+#   ⚑ across：文档 §1.2 的原规矩——薄片武器斜拿、摆臂时刀面转向镜头会"消失"，横持最稳
+#   ⚑ side：跑步/走路自然，⚑ 靠"宽面始终朝向观众"压细线风险；攻击从此姿势抬剑起手也顺
+#   ⚑ back：跑步最自然、完全没有细线问题，⚠ 但攻击得从拔剑开始，剑形靠模型凭空画，一致性风险大
+WEAPON_POSE = {
+    'across': '如果持有武器，武器横在身前、宽面正对观众。',
+    'side':   '如果持有武器，持武器的手自然垂在身体一侧，武器尖端斜指后下方，武器的宽面始终朝向观众；另一只手空着自然下垂。',
+    'back':   '如果持有武器，武器收在背后或腰间的鞘中，双手空着自然下垂。',
+}
+
+# ⚑ 立绘提示词（文档 §1.2）：别写雾气光晕、底色给中性灰；持武器姿势按 WEAPON_POSE 选
 PORTRAIT_TMPL = (
     '{desc}。{style}\n'
     '全身立绘，从头顶到双脚完整可见，3/4 侧面朝向画面左侧，双脚并拢自然站立。'
-    '如果持有武器，武器横在身前、刀面正对观众。\n'
+    '{weapon}\n'
     '纯色中性灰背景（#9A9A9A），没有地面、没有阴影、没有任何背景元素。'
     '没有雾气、没有光晕、没有粒子、没有特效。干净清晰的硬边轮廓，游戏角色立绘。'
 )
@@ -140,8 +167,8 @@ def build_prompt(action: str, extra: str = '', motion: str = None) -> str:
 
 
 # ─────────────────────────────── 可选：让 LLM 把「一句话」扩成立绘描述 ＋ 各动作的运动段
-LLM_SYSTEM = """你是 2D 游戏角色动画的提示词工程师。用户给一句话描述角色，你要产出 JSON：
-{"portrait": "<立绘描述>", "walk": "<走路运动段>", "attack": "<攻击运动段>"}
+LLM_SYSTEM = """你是 2D 游戏角色动画的提示词工程师。用户给一句话描述角色和需要的动作列表，你要产出 JSON：
+{"portrait": "<立绘描述>", "<动作key>": "<该动作的运动段>", ...}   （每个动作 key 一个字段，如 walk / run / attack / jab）
 
 规则（全部来自实测，违反就出废片）：
 1. portrait 只描述角色外观（体型、服装、发型、武器、配色），一两句。不要写雾气、光晕、粒子、特效——它们会被画成实心形状。
@@ -343,7 +370,7 @@ class Job:
     def _estimate(self):
         by, total = {}, 0.0
         if self.spec['mode'] == 'generate':
-            by['角色'] = 0.0 if (self.spec.get('portrait_upload') and not self.spec.get('portrait_from')) else PRICE_PORTRAIT
+            by['角色'] = 0.0 if (self.spec.get('portrait_upload') and not self.spec.get('portrait_from')) else portrait_price()
             total += by['角色']
             for a in self.state['actions']:
                 p = video_price(*self._prov(a)[:1], self._opt(a, 'res'), int(self._opt(a, 'dur')), self._prov(a)[1])
@@ -447,15 +474,16 @@ class Job:
             im = self.state['options'].get('image_model') or c.get('model')
             if im:
                 argv.append(f'--model={im}')
-            self.step('portrait', '立绘：图生图改版', argv, cost=PRICE_PORTRAIT, who='角色', env=env)
+            self.step('portrait', '立绘：图生图改版', argv, cost=portrait_price(), who='角色', env=env)
             self.state['artifacts']['portrait'] = 'out/01_portrait.png'
             self.save()
             return
         desc = (self.state.get('prompts') or {}).get('portrait') or self.state['prompt']
+        pose = WEAPON_POSE.get(self.state['options'].get('weapon_pose', 'side'), WEAPON_POSE['side'])   # ⚑ 默认垂身侧（跑步/走路自然）
         item = {'id': 1, 'name': 'portrait', 'desc': '立绘', 'size': '1024x1024',
                 'transparent': False, 'quality': self.state['options'].get('image_quality', 'medium'),
                 'prompt': PORTRAIT_TMPL.format(desc=desc.strip('。 '),
-                                               style=self.state['style'] or DEFAULT_STYLE)}
+                                               style=self.state['style'] or DEFAULT_STYLE, weapon=pose)}
         self.state['artifacts']['portrait_prompt'] = item['prompt']
         # ⚠ gen.py 要的是 {"items": [...]}，⛔ 不是裸数组（⚑ 预检时崩过一次）
         (self.dir / 'prompts.json').write_text(json.dumps({'items': [item]}, ensure_ascii=False, indent=2),
@@ -466,7 +494,7 @@ class Job:
             argv += ['--model', im]
         self.state['artifacts']['portrait_model'] = im or '(脚本默认)'
         # ⚑ gen.py 只认环境变量 ⇒ ⚑ 把 _creds 里的 relay 注进去（⚑ 网页端配的 key 由此生效）
-        self.step('portrait', '出立绘', argv, cost=PRICE_PORTRAIT, who='角色', env=env)
+        self.step('portrait', '出立绘', argv, cost=portrait_price(), who='角色', env=env)
         png = self.dir / 'out' / '01_portrait.png'
         if not png.exists():
             raise RuntimeError('gen.py 没有产出 out/01_portrait.png')

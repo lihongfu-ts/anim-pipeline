@@ -2,235 +2,220 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<title>anim-pipeline · 一句话 → 角色 + 移动 + 攻击</title>
+<title>anim-pipeline</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--bg:#14161a;--panel:#1c1f25;--line:#2a2f38;--fg:#e6e6e6;--dim:#8a93a3;--acc:#5aa7ff;--ok:#4cc38a;--warn:#f0b35a;--bad:#f06a6a;--mono:ui-monospace,Consolas,monospace}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
-header{display:flex;align-items:center;gap:16px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
-header h1{font-size:15px;margin:0;font-weight:600}header .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{font-size:12px;padding:2px 8px;border-radius:10px;border:1px solid var(--line);color:var(--dim)}
-.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.bad{border-color:var(--bad);color:var(--bad)}.chip.warn{border-color:var(--warn);color:var(--warn)}
-nav{display:flex;gap:2px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
-nav button{background:none;border:0;color:var(--dim);padding:10px 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:14px}
-nav button.on{color:var(--fg);border-bottom-color:var(--acc)}
-main{padding:16px;max-width:1400px;margin:0 auto}.tab{display:none}.tab.on{display:block}
-.grid{display:grid;grid-template-columns:420px 1fr;gap:16px}@media(max-width:1000px){.grid{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:14px}
-.card h3{margin:0 0 10px;font-size:14px;color:var(--dim);font-weight:600;letter-spacing:.5px}
-label{display:block;font-size:12px;color:var(--dim);margin:8px 0 3px}
-input[type=text],input[type=number],input[type=password],select,textarea{width:100%;background:#0f1114;border:1px solid var(--line);color:var(--fg);padding:7px 9px;border-radius:5px;font:inherit}
-textarea{min-height:64px;resize:vertical}input[type=number]{width:80px}
-.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:0 0 auto}
-button.btn{background:var(--acc);color:#04111f;border:0;padding:8px 14px;border-radius:5px;cursor:pointer;font-weight:600;font:inherit}
-button.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}button.btn.sm{padding:4px 9px;font-size:12px}
-button.btn:disabled{opacity:.4;cursor:not-allowed}
-.act{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-top:8px}
-.act .hd{display:flex;justify-content:space-between;align-items:center}.act .opts{display:none;margin-top:6px}.act.open .opts{display:block}
-.cost{font-family:var(--mono)}.cost.big{font-size:20px;color:var(--warn)}
-.job{border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:8px;cursor:pointer}.job:hover{border-color:var(--acc)}.job.sel{border-color:var(--acc)}
-.job .st{font-size:12px;color:var(--dim)}.st.running{color:var(--acc)}.st.done{color:var(--ok)}.st.failed{color:var(--bad)}
-.steps{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.step{font-size:11px;padding:1px 6px;border-radius:3px;background:#0f1114;color:var(--dim)}
-.step.done{color:var(--ok)}.step.failed{color:var(--bad)}.step.running{color:var(--acc)}
-table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}th{color:var(--dim);font-weight:500}
-.mono{font-family:var(--mono)}.dim{color:var(--dim)}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
-#stage{background:repeating-conic-gradient(#20242b 0 25%,#181b20 0 50%) 0 0/24px 24px;border:1px solid var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;min-height:360px;position:relative}
+:root{--bg:#0f1115;--panel:#171a20;--panel2:#1e2229;--line:#2a2f38;--fg:#e8eaee;--dim:#8a93a3;--acc:#5aa7ff;--acc2:#3d7fd6;--ok:#4cc38a;--warn:#f0b35a;--bad:#f06a6a;--mono:ui-monospace,Consolas,monospace}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+a{color:var(--acc)}
+header{display:flex;align-items:center;gap:14px;padding:0 22px;height:52px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+header h1{font-size:15px;margin:0 18px 0 0;font-weight:700}
+nav{display:flex;gap:2px;height:100%}nav button{background:none;border:0;color:var(--dim);padding:0 14px;cursor:pointer;border-bottom:2px solid transparent;font-size:14px;height:100%}
+nav button.on{color:var(--fg);border-bottom-color:var(--acc)}nav button:hover{color:var(--fg)}
+.sw{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);cursor:pointer;user-select:none}.sw i{width:30px;height:16px;border-radius:8px;background:var(--line);position:relative;display:inline-block}.sw i::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .12s}.sw.on i{background:var(--warn)}.sw.on i::after{left:16px}
+main{padding:24px 22px 80px;max-width:940px;margin:0 auto}.wide{max-width:1400px}.tab{display:none}.tab.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card h3{margin:0 0 10px;font-size:13px;color:var(--dim);font-weight:600;letter-spacing:.6px}
+label{display:block;font-size:12px;color:var(--dim);margin:10px 0 4px}
+input[type=text],input[type=number],input[type=password],select,textarea{width:100%;background:#0c0e12;border:1px solid var(--line);color:var(--fg);padding:9px 11px;border-radius:8px;font:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--acc2)}textarea{resize:vertical}input[type=number]{width:84px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:0 0 auto}.grow{flex:1 1 auto!important}.between{justify-content:space-between}
+button.btn{background:var(--acc);color:#04111f;border:0;padding:10px 18px;border-radius:9px;cursor:pointer;font-weight:600;font:inherit;transition:filter .12s}
+button.btn:hover{filter:brightness(1.08)}button.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}button.btn.ghost:hover{border-color:var(--acc2)}
+button.btn.sm{padding:5px 11px;font-size:12px;border-radius:7px}button.btn.big{padding:13px 26px;font-size:15px;border-radius:11px}button.btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.mono{font-family:var(--mono)}.dim{color:var(--dim)}.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.small{font-size:12px}
+.note{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}code{font-family:var(--mono);background:#0c0e12;padding:1px 5px;border-radius:4px}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;background:#0c0e12;color:var(--dim);margin-left:6px;border:1px solid var(--line)}
+.cost{font-family:var(--mono)}
+table{border-collapse:collapse;width:100%}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:13px;vertical-align:top}th{color:var(--dim);font-weight:500;white-space:nowrap}
+/* prompt box */
+#prompt{min-height:96px;font-size:16px;padding:14px 16px;border-radius:12px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:20px;padding:6px 12px;cursor:pointer;font-size:13px;background:#0c0e12;display:flex;gap:6px;align-items:center;user-select:none}
+.chip:hover{border-color:var(--acc2)}.chip.on{border-color:var(--acc);background:#10192a}.chip .p{color:var(--warn);font-family:var(--mono);font-size:12px}.chip .gear{color:var(--dim);font-size:12px;padding-left:4px}.chip .gear:hover{color:var(--fg)}
+.opts{display:none;background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}.opts.on{display:block}
+details.more{margin-top:8px}details.more summary{cursor:pointer;color:var(--dim);font-size:12px;list-style:none}details.more summary::before{content:'▸ '}details.more[open] summary::before{content:'▾ '}
+.pres{display:flex;gap:18px;align-items:flex-start;padding:14px;border:1px solid var(--line);border-radius:12px;background:#0c0e12;margin-top:14px}
+.pres img{width:220px;height:220px;object-fit:contain;background:#888;border-radius:8px}.pres .info{flex:1}
+.prog{display:flex;flex-direction:column;gap:4px;margin-top:8px}.prog div{font-size:12px;padding:5px 9px;border-radius:6px;background:#0c0e12;display:flex;gap:8px;align-items:center}
+.prog .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:0 0 auto}.prog .done .dot{background:var(--ok)}.prog .failed .dot{background:var(--bad)}.prog .running .dot{background:var(--acc);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.results{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px}.res{background:#0c0e12;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center}
+.res img{height:160px;image-rendering:pixelated;background:repeating-conic-gradient(#20242b 0 25%,#181b20 0 50%) 0 0/16px 16px;border-radius:6px}
+.stepc{font-size:11px;padding:1px 6px;border-radius:3px;background:#0c0e12;color:var(--dim)}.stepc.done{color:var(--ok)}.stepc.failed{color:var(--bad)}.stepc.running{color:var(--acc)}
+.st{font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid var(--line);color:var(--dim)}.st.running,.st.queued,.st.waiting{color:var(--acc);border-color:#2b4a72}.st.done{color:var(--ok);border-color:#2d6b4c}.st.failed{color:var(--bad);border-color:#7a3a3a}
+/* setup */
+.prov{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}.prov:last-child{border-bottom:0}
+.prov .nm b{display:block}.prov .nm span{font-size:12px;color:var(--dim)}.prov .fs{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.prov .fs label{margin:0 0 3px}
+.prov .out{font-size:12px;margin-top:6px}
+/* gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.gcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer}.gcard:hover{border-color:var(--acc2)}.gcard.sel{border-color:var(--acc)}
+.gcard .media{display:flex;gap:8px;align-items:flex-end;min-height:120px;background:#0c0e12;border-radius:8px;padding:8px;overflow-x:auto}
+.gcard .media img{height:110px;border-radius:4px;background:#888}.gcard .media img.anim{background:repeating-conic-gradient(#20242b 0 25%,#181b20 0 50%) 0 0/12px 12px;image-rendering:pixelated}
+.gcard .title{font-size:13px;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#log,#libLog{background:#0a0c10;border:1px solid var(--line);border-radius:8px;padding:12px;font:12px/1.5 var(--mono);white-space:pre-wrap;max-height:320px;overflow:auto;color:#c8ced8}
+/* preview */
+.grid{display:grid;grid-template-columns:minmax(360px,480px) 1fr;gap:18px}@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+#stage{background:repeating-conic-gradient(#20242b 0 25%,#181b20 0 50%) 0 0/24px 24px;border:1px solid var(--line);border-radius:10px;display:flex;align-items:center;justify-content:center;min-height:440px}
 #stage canvas{image-rendering:pixelated;image-rendering:crisp-edges}
-.holds{display:flex;gap:6px;flex-wrap:wrap}.holds div{text-align:center;font-size:11px;color:var(--dim)}.holds input{width:62px;text-align:center}
-.thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.thumbs img{max-height:120px;border:1px solid var(--line);border-radius:4px;background:#000}
-#log{background:#0b0d10;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.45 var(--mono);white-space:pre-wrap;max-height:260px;overflow:auto;color:#c8ced8}
-.note{font-size:12px;color:var(--dim);margin-top:6px}code{font-family:var(--mono);background:#0f1114;padding:1px 4px;border-radius:3px}
-.pill{display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;background:#0f1114;color:var(--dim);margin-left:6px}
+.holds{display:flex;gap:6px;flex-wrap:wrap}.holds div{text-align:center;font-size:11px;color:var(--dim)}.holds input{width:64px;text-align:center}
+.thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.thumbs img,.thumbs video{max-height:130px;border:1px solid var(--line);border-radius:6px;background:#000}
+.acttabs{display:flex;gap:6px;flex-wrap:wrap}.acttabs button.on{background:var(--acc);color:#04111f;border-color:var(--acc)}
+.empty{color:var(--dim);padding:28px;text-align:center;border:1px dashed var(--line);border-radius:10px}
 </style>
 </head>
 <body>
 <header>
   <h1>anim-pipeline</h1>
-  <div class="chips" id="chips"><span class="chip">加载中…</span></div>
+  <nav>
+    <button class="on" data-tab="gen">制作</button>
+    <button data-tab="lib">作品</button>
+    <button data-tab="prev">预览</button>
+    <button data-tab="set">设置</button>
+    <button data-tab="agent">Agent</button>
+  </nav>
   <span style="flex:1"></span>
-  <span class="dim" style="font-size:12px" id="credsfile"></span>
+  <span class="sw" id="demoSw" title="用合成素材走一遍后半段，不调任何 API、不花钱"><i></i>试运行（不花钱）</span>
 </header>
-<nav>
-  <button class="on" data-tab="gen">生成</button>
-  <button data-tab="prev">预览</button>
-  <button data-tab="ext">提取</button>
-  <button data-tab="cred">凭据</button>
-  <button data-tab="agent">Agent（DeepSeek 大脑）</button>
-</nav>
 <main>
 
-<!-- ───────────────────────────── 生成 -->
+<!-- ═══════════════════════════ 制作 -->
 <section class="tab on" id="tab-gen">
-<div class="grid">
-<div>
-  <div class="card">
-    <h3>一句话生成角色</h3>
-    <label>角色（一句话）</label>
-    <textarea id="prompt" placeholder="例：穿黑色斗篷、蒙着面罩的少年剑客，手持一把宽刃弯刀"></textarea>
-    <label>风格（可改）</label>
-    <input type="text" id="style" value="Q 版 3.5 头身，厚涂风格，颜色饱和，轮廓清晰。">
-    <div class="row" style="margin-top:8px">
-      <label style="margin:0"><input type="checkbox" id="llm"> 让大模型先把一句话扩成四段提示词</label>
-      <select id="llmProv" style="width:auto" title="用哪家写提示词"><option value="llm">llm（DeepSeek）</option><option value="glm">glm</option></select>
-      <input type="text" id="llmModel" value="glm-5.3-flash" style="width:150px" title="模型名；失败自动退回模板">
-    </div>
-    <div class="row" style="margin-top:4px">
-      <label style="margin:0"><input type="checkbox" id="vlm"> 让 VLM 看联络表挑帧 + 判崩坏（一次性动作；崩了就停，不再花钱）</label>
-      <input type="text" id="vlmModel" style="width:150px" title="要带视觉的模型；凭据页「检查」会告诉你支不支持看图">
-    </div>
-    <label>或者上传自己的立绘（跳过出图那 ¥0.15）</label>
-    <input type="file" id="portraitFile" accept="image/png,image/jpeg">
-    <div id="portraitNote" class="note"></div>
-    <label>或者基于已有立绘改一版（图生图：换武器 / 换装，姿势比例不变，¥0.15）</label>
-    <div class="row"><select id="baseSel" style="width:auto"><option value="">— 选一个任务的立绘 —</option></select><span class="dim">或上传底图</span><input type="file" id="baseFile" accept="image/png,image/jpeg" style="width:auto"></div>
-    <input type="text" id="editPrompt" placeholder="例：把弯刀去掉，改成缠着绷带的双拳，摆出拳击防守姿势；其余不变" style="margin-top:6px">
-    <div class="note" id="baseNote">⚠ 换了立绘，走路 / 待机也得按新立绘重跑（唯一源图原则 §1.1），不然武器会在动作衔接处瞬移。</div>
-    <label>动作</label>
-    <div id="acts"></div>
-    <label>模式</label>
-    <div class="row">
-      <label style="margin:0"><input type="radio" name="mode" value="demo" checked> demo（合成素材，不花钱，测链路）</label>
-      <label style="margin:0"><input type="radio" name="mode" value="generate"> 真实生成（走 API，花钱）</label>
-    </div>
-    <div class="card" style="margin:12px 0 0;background:#0f1114">
-      <div class="row" style="justify-content:space-between">
-        <span>预估费用</span><span class="cost big" id="costTotal">¥0.00</span>
-      </div>
-      <table id="costTable"></table>
-      <div class="note">单价来自《AI角色动画管线.md》§8.1（2026-09），会漂。视频按<b>任务 id 落盘时刻</b>记账——片取不回钱照扣。</div>
-    </div>
+
+  <!-- 首次：先配齐 -->
+  <div class="card" id="setupGate" hidden>
+    <h3>先花两分钟把配置填好，之后就不用再碰</h3>
+    <div id="gateProvs"></div>
+    <div class="row between" style="margin-top:14px"><span class="note" id="gateMsg"></span><button class="btn" id="gateDone" disabled>开始制作 →</button></div>
+  </div>
+
+  <div id="flow">
+    <textarea id="prompt" placeholder="一句话描述角色，例如：国风水墨画风格的剑客，身穿长衫，手持一柄长剑"></textarea>
     <div class="row" style="margin-top:10px">
-      <label style="margin:0" id="confirmWrap" hidden><input type="checkbox" id="confirm"> 我确认要花这笔钱</label>
-      <button class="btn ghost" id="goPortrait" title="两段式：先出一张立绘看看，满意了再在任务卡上点「用这张立绘出动作」">① 只出立绘（¥0.15）</button>
-      <button class="btn" id="go">② 开始（出动作）</button>
-      <span class="dim" id="goMsg"></span>
+      <input type="text" id="style" class="grow" value="Q 版 3.5 头身，厚涂风格，颜色饱和，轮廓清晰。" title="画风">
+      <select id="weaponPose" style="width:auto" title="持武器姿势">
+        <option value="side">武器垂于身侧（跑步/走路自然）</option>
+        <option value="across">武器横在身前（攻击最稳）</option>
+        <option value="back">武器收在背后（攻击得先拔）</option>
+      </select>
     </div>
-    <div class="note" id="portraitJobNote"></div>
+    <div class="row between" style="margin-top:12px">
+      <div class="row">
+        <button class="btn big" id="btnPortrait">出立绘 <span class="cost" id="portraitCost"></span></button>
+        <details class="more"><summary>不出图，用已有立绘</summary>
+          <div class="row" style="margin-top:8px">
+            <input type="file" id="portraitFile" accept="image/png,image/jpeg" style="width:auto">
+            <select id="jobPortraitSel" style="width:auto"><option value="">— 从作品里选 —</option></select>
+          </div></details>
+      </div>
+      <span class="dim small" id="portraitMsg"></span>
+    </div>
+
+    <div class="pres" id="pres" hidden>
+      <img id="presImg" alt="立绘">
+      <div class="info">
+        <div id="presStatus" class="dim">生成中…</div>
+        <div class="prog" id="presProg"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="btnPortraitOk" hidden>满意，选动作 ↓</button>
+          <button class="btn ghost" id="btnPortraitRedo" hidden>再出一张</button>
+          <button class="btn ghost" id="btnPortraitEdit" hidden>改一版…</button>
+        </div>
+        <div id="editBox" hidden style="margin-top:10px">
+          <textarea id="editPrompt" placeholder="改什么，其余不变。例：把剑改为右手垂在身侧、剑尖朝后下方；或：换成另一个角色——黑发少年、深青劲装、持直剑"></textarea>
+          <div class="row" style="margin-top:6px"><button class="btn sm" id="btnEditGo">出改版 <span class="cost" id="editCost"></span></button><span class="note" style="margin:0">保留画风 / 头身比 / 站姿 / 构图 / 灰底，只改你写的。换了立绘所有动作要重出。</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="actCard" style="margin-top:18px">
+      <div class="row between"><h3 style="margin:0">动作</h3><span class="dim small" id="portraitInUse"></span></div>
+      <div class="chips" id="acts" style="margin-top:10px"></div>
+      <div id="actOpts"></div>
+      <div class="row between" style="margin-top:14px">
+        <span class="dim small">每个动作一发视频；一次性动作由视觉模型看联络表挑帧，崩了就停。</span>
+        <span class="row"><span class="dim small" id="goMsg"></span><button class="btn big" id="go">出动作 <span class="cost" id="costTotal"></span></button></span>
+      </div>
+    </div>
+
+    <div class="card" id="curCard" hidden>
+      <div class="row between"><h3 style="margin:0" id="curJobTitle"></h3><button class="btn sm ghost" id="btnLog">日志</button></div>
+      <div class="prog" id="curProg"></div>
+      <div class="results" id="curResults"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="btnPreview" hidden>预览 / 调顿帧</button>
+        <button class="btn ghost" id="btnExport" hidden>导出 ZIP</button>
+        <button class="btn ghost" id="btnAnother" hidden>同一立绘再出别的动作</button>
+      </div>
+      <div id="curLogWrap" hidden style="margin-top:10px"><div id="log"></div></div>
+    </div>
   </div>
-</div>
-<div>
-  <div class="card">
-    <h3>任务 <span class="pill" id="jobCount"></span></h3>
-    <div id="jobs" class="dim">还没有任务</div>
-  </div>
-  <div class="card">
-    <h3>日志 <span class="pill" id="logJob"></span></h3>
-    <div id="log">选择一个任务查看日志</div>
-  </div>
-</div>
-</div>
 </section>
 
-<!-- ───────────────────────────── 预览 -->
+<!-- ═══════════════════════════ 作品 -->
+<section class="tab" id="tab-lib">
+<div class="row between" style="margin-bottom:12px"><h3 style="margin:0" class="dim">作品 <span class="pill" id="jobCount"></span></h3><span class="dim small">点卡片看日志</span></div>
+<div class="gallery" id="gallery"></div>
+<div class="card" style="margin-top:16px"><h3>日志 <span class="pill" id="logJob"></span></h3><div id="libLog">选一个作品</div></div>
+</section>
+
+<!-- ═══════════════════════════ 预览 -->
 <section class="tab" id="tab-prev">
 <div class="grid">
 <div>
-  <div class="card">
-    <h3>来源</h3>
-    <div id="srcList" class="dim">在「生成」页选一个已完成的任务，或到「提取」页上传图集</div>
-  </div>
+  <div class="card"><h3>动作</h3><div id="srcList" class="acttabs dim">在「作品」选一个，或下面上传图集</div></div>
   <div class="card">
     <h3>播放</h3>
     <div class="row"><label style="margin:0">fps <input type="number" id="fps" value="8" min="1" max="60"></label>
       <label style="margin:0">放大 <input type="number" id="zoom" value="2" min="1" max="8" step="1"></label>
-      <label style="margin:0"><input type="checkbox" id="onion"> 洋葱皮（看循环缝）</label>
+      <label style="margin:0"><input type="checkbox" id="onion"> 洋葱皮</label>
       <label style="margin:0"><input type="checkbox" id="loopc" checked> 循环</label>
       <button class="btn sm ghost" id="playBtn">⏸</button></div>
     <label>逐帧时长 ms（顿帧全在这里；留空 = 按 fps）</label>
     <div class="holds" id="holds"></div>
-    <div class="note">打击感靠逐帧不等长：命中帧拉长、过渡帧缩短。这里调好的 holds 会写进导出的 manifest。</div>
   </div>
-  <div class="card">
-    <h3>验收 / 费用</h3>
-    <div id="metrics" class="dim">—</div>
-  </div>
+  <div class="card"><h3>验收 / 费用</h3><div id="metrics" class="dim">—</div></div>
+  <div class="card"><h3>上传任意图集</h3>
+    <div class="row"><input type="file" id="extFile" accept="image/png" style="width:auto"><label style="margin:0">格 <input type="number" id="extW" value="192" style="width:70px"> × <input type="number" id="extH" value="256" style="width:70px"></label>
+      <button class="btn sm ghost" id="extPrev">预览</button><button class="btn sm ghost" id="extZip">切帧 ZIP</button></div></div>
 </div>
 <div>
   <div class="card">
     <div id="stage"><canvas id="cv" width="192" height="256"></canvas></div>
-    <div class="row" style="margin-top:8px;justify-content:space-between">
-      <span class="dim mono" id="frameInfo"></span>
-      <span>
-        <button class="btn sm ghost" id="dlSheet">下载图集 PNG</button>
-        <button class="btn sm ghost" id="dlGif">下载 GIF</button>
-        <button class="btn sm" id="dlZip">导出 ZIP（图集+逐帧+manifest）</button>
-      </span>
-    </div>
+    <div class="row between" style="margin-top:10px"><span class="dim mono" id="frameInfo"></span>
+      <span class="row"><button class="btn sm ghost" id="dlSheet">图集 PNG</button><button class="btn sm ghost" id="dlGif">GIF</button><button class="btn sm" id="dlZip">导出 ZIP</button></span></div>
     <div class="thumbs" id="thumbs"></div>
   </div>
 </div>
 </div>
 </section>
 
-<!-- ───────────────────────────── 提取 -->
-<section class="tab" id="tab-ext">
-<div class="card" style="max-width:640px">
-  <h3>上传任意图集 → 预览 / 提取逐帧</h3>
-  <label>图集 PNG（横排格子）</label><input type="file" id="extFile" accept="image/png">
-  <div class="row"><label style="margin:0">格宽 <input type="number" id="extW" value="192"></label><label style="margin:0">格高 <input type="number" id="extH" value="256"></label>
-    <button class="btn sm ghost" id="extPrev">去预览</button><button class="btn sm" id="extZip">提取逐帧 ZIP</button></div>
-  <div class="note">提取包里带 manifest.json：格子尺寸、帧数、每帧脚底到格底的像素（footTrim）——接进引擎对齐用。</div>
-</div>
+<!-- ═══════════════════════════ 设置 -->
+<section class="tab" id="tab-set">
+<div class="card"><h3>模型与 key（配一次，之后默认调用）</h3><div id="setProvs"></div>
+  <div class="note" style="margin-top:12px">写到本机 <code id="cFile"></code>，不进仓库、不回显完整 key；服务只监听 127.0.0.1。dsh 插件 / MCP / 命令行读的是同一份。</div></div>
+<div class="card"><h3>怎么拿 key</h3>
+  <div class="small"><b>万相（必需）</b>：<a href="https://platform.qianwenai.com/try-ai?scene=video" target="_blank">platform.qianwenai.com/try-ai?scene=video</a> → 万相 3.0-视频生成 → 右上角「获取 API Key」。480P/2s ¥0.40。</div>
+  <div class="small" style="margin-top:6px"><b>大模型（必需）</b>：<a href="https://platform.deepseek.com" target="_blank">DeepSeek</a>，模型 <code>deepseek-v4-pro</code>（实测能看图挑帧；v4-flash 不能）。写提示词 + 看联络表 + agent 大脑都用它。</div>
+  <div class="small" style="margin-top:6px"><b>中转站（出立绘要）</b>：推荐 <a href="https://jizhiapi.site/register?aff=9GKRGQJNL4R4" target="_blank">jizhiapi.site</a>（邀请码 <code>9GKRGQJNL4R4</code>），支持 <code>gpt-image-2.5</code>，**¥0.05/张**；baseUrl 填 <code>https://jizhiapi.site/v1</code>，model 填 <code>gpt-image-2.5</code>，每次价格填 0.05。其它 OpenAI 兼容站也行，保存后「检查」能列出它的图像模型。已有立绘可不配。</div>
+  <div class="small" style="margin-top:6px"><b>智谱（可选）</b>：CogVideoX-3 会推镜头、转正面，只适合探静止型；买了包填包价。</div></div>
 </section>
 
-<!-- ───────────────────────────── 凭据 -->
-<section class="tab" id="tab-cred">
-<div class="grid">
-<div>
-  <div class="card">
-    <h3>配置一家</h3>
-    <label>provider</label>
-    <select id="cProv">
-      <option value="wan">wan · 阿里万相（出片定稿，唯一能钉首尾帧）</option>
-      <option value="relay">relay · 中转站 gpt-image（出立绘）</option>
-      <option value="glm">glm · 智谱（免费抽构图 / 提示词扩写）</option>
-      <option value="ark">ark · 火山 seedance（免费额度抽结构）</option>
-      <option value="minimax">minimax · MiniMax</option>
-      <option value="llm">llm · 提示词扩写用的大模型（OpenAI 兼容：智谱 / DeepSeek / 任意中转）</option>
-    </select>
-    <label>baseUrl</label><input type="text" id="cBase" placeholder="留空用默认">
-    <div class="note" id="cHint"></div>
-    <label>apiKey</label><input type="password" id="cKey" autocomplete="off">
-    <label id="cWsWrap">workspaceId（万相要）</label><input type="text" id="cWs">
-    <label id="cModelWrap">model（llm：聊天模型，例 deepseek-v4-pro；relay：图像模型，例 gpt-image-2.5 —— 点「检查」能列出中转站有哪些）</label><input type="text" id="cModel">
-    <label id="cVModelWrap">vision model（看图 / VLM 挑帧，例：deepseek-v4-pro；实测 v4-flash 不认图、vision-exp 不稳定）</label><input type="text" id="cVModel">
-    <label id="cPriceWrap">每次价格（元，可选；买了包就填包价，如智谱 ¥10/100 次 → 0.10；留空按标价）</label><input type="number" id="cPrice" step="0.01" min="0">
-    <div class="row" style="margin-top:10px"><button class="btn" id="cSave">保存</button><span class="dim" id="cMsg"></span></div>
-    <div class="note">写到本机 <code id="cFile"></code>，不进仓库、不回显完整 key。服务只监听 127.0.0.1。</div>
-  </div>
-</div>
-<div>
-  <div class="card">
-    <h3>状态 / 检查模型</h3>
-    <table id="credTable"></table>
-    <div id="probeOut" class="note"></div>
-  </div>
-</div>
-</div>
-</section>
-<!-- ───────────────────────────── Agent -->
+<!-- ═══════════════════════════ Agent -->
 <section class="tab" id="tab-agent">
 <div class="grid">
 <div>
   <div class="card">
-    <h3>让大模型自己跑完这条链</h3>
-    <label>目标</label>
-    <textarea id="agGoal">给这个角色做一段走路和一段攻击动画，每个动作都要过验收。</textarea>
-    <div class="row" style="margin-top:6px">
-      <label style="margin:0">脑 <input type="text" id="agBrain" style="width:170px"></label>
-      <label style="margin:0">眼 <input type="text" id="agEyes" style="width:170px"></label>
-    </div>
-    <div class="row" style="margin-top:6px">
-      <label style="margin:0"><input type="radio" name="agMode" value="demo" checked> demo（不花钱）</label>
-      <label style="margin:0"><input type="radio" name="agMode" value="generate"> 真实生成</label>
+    <h3>让大模型自己跑完整条链</h3>
+    <textarea id="agGoal" style="min-height:70px">给这个角色做一段走路和一段攻击动画，每个动作都要过验收。</textarea>
+    <div class="row" style="margin-top:8px">
       <label style="margin:0">预算 ¥<input type="number" id="agBudget" value="3" step="0.5" min="0"></label>
       <label style="margin:0"><input type="checkbox" id="agAuto"> 预算内自动批准</label>
+      <input type="file" id="agPortrait" accept="image/png,image/jpeg" style="width:auto" title="已有立绘（可选）">
     </div>
-    <label>已有立绘（可选，跳过出图）</label><input type="file" id="agPortrait" accept="image/png,image/jpeg">
-    <div class="row" style="margin-top:10px"><label style="margin:0" id="agConfirmWrap" hidden><input type="checkbox" id="agConfirm"> 我确认要花钱</label>
-      <button class="btn" id="agGo">开始</button><span class="dim" id="agMsg"></span></div>
-    <div class="note">agent 只做决策：写运动段、选 provider、读验收数字、决定重出还是换路线。机械步骤全是 tools/ 里的脚本。
-      收费步骤会停下来问你（除非勾了自动批准）；每个动作最多出 2 发；崩坏由视觉模型判定后按「换 provider / 改禁止句 / 问人」路由。</div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="agGo">开始</button><span class="dim small" id="agMsg"></span></div>
+    <div class="note">脑 / 眼用「设置」里的大模型。agent 只做决策：写运动段、选 provider、读验收数字、决定重出还是换路线；收费步骤会停下来问你（除非勾了自动批准）；每个动作最多 2 发。试运行开关同样生效。</div>
   </div>
   <div class="card"><h3>运行 <span class="pill" id="agCount"></span></h3><div id="agRuns" class="dim">还没有</div></div>
 </div>
@@ -240,8 +225,7 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     <div class="row" style="margin-top:8px"><input type="text" id="agAnswer" placeholder="回答 / 拒绝理由（可空）" style="width:360px">
       <button class="btn" id="agApprove">批准</button><button class="btn ghost" id="agReject">拒绝</button><button class="btn ghost" id="agReply" hidden>回答</button></div>
   </div>
-  <div class="card"><h3>过程 <span class="pill" id="agId"></span> <button class="btn sm ghost" id="agPreview" hidden>去预览</button></h3>
-    <div id="agTranscript" class="dim">选一个运行</div></div>
+  <div class="card"><h3>过程 <span class="pill" id="agId"></span> <button class="btn sm ghost" id="agPreview" hidden>预览</button></h3><div id="agTranscript" class="dim">选一个运行</div></div>
 </div>
 </div>
 </section>
@@ -250,227 +234,208 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const api=async(u,o={})=>{const r=await fetch(u,{headers:o.body&&!(o.body instanceof FormData)?{'Content-Type':'application/json'}:{},...o,body:o.body&&!(o.body instanceof FormData)?JSON.stringify(o.body):o.body});const t=await r.text();let j;try{j=JSON.parse(t)}catch{j={detail:t}}if(!r.ok)throw new Error(j.detail||r.statusText);return j};
-let D=null, JOBSTATE=[], selJob=null, logOff=0, portraitPath=null;
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let D=null, JOBSTATE=[], AGRUNS=[], demo=false;
+const W={portraitJob:null,portraitPath:null,pJob:null,aJob:null,logJob:null,logOff:0};
 
-// ───────── tabs
-$$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.toggle('on',x===b));$$('.tab').forEach(t=>t.classList.toggle('on',t.id==='tab-'+b.dataset.tab))});
+function showTab(t){$$('nav button').forEach(x=>x.classList.toggle('on',x.dataset.tab===t));$$('.tab').forEach(s=>s.classList.toggle('on',s.id==='tab-'+t))}
+$$('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+$('#demoSw').onclick=()=>{demo=!demo;$('#demoSw').classList.toggle('on',demo);applyMode()};
+function applyMode(){$('#btnPortrait').disabled=demo;$('#portraitMsg').textContent=demo?'试运行：不出立绘，用合成素材走动作链路':'';estimate()}
 
-// ───────── doctor / chips
-async function loadDoctor(){
-  D=await api('/api/doctor');
-  const c=[];
-  const chip=(n,ok,warn)=>c.push(`<span class="chip ${ok?'ok':(warn?'warn':'bad')}">${n}</span>`);
-  chip('numpy',D.numpy);chip('Pillow',D.pillow);chip('ffmpeg',D.ffmpeg&&D.ffprobe);
-  for(const p of ['relay','wan','glm','ark','minimax','llm']) chip(p,!!D.creds[p],true);
-  $('#chips').innerHTML=c.join('');
-  $('#credsfile').textContent=D.creds_file; $('#cFile').textContent=D.creds_file;
-  // ⚑ 分工（用户裁决）：提示词 + 看图 + 分析都用 llm（DeepSeek）；glm 只负责免费抽视频（动作卡里 provider 选 zhipu）
-  $('#llmProv').value=D.creds.llm?'llm':'glm';
-  const setLlmModel=()=>{$('#llmModel').value=$('#llmProv').value==='glm'?D.llm_default:((D.creds.llm&&D.creds.llm.model)||'')};setLlmModel();$('#llmProv').onchange=setLlmModel;
-  $('#vlmModel').value=(D.creds.llm&&D.creds.llm.vision_model)||(D.creds.llm&&D.creds.llm.model)||'';
-  buildActs(); renderCredTable(); estimate();
+// ───────── 配置（设置页 + 首次引导共用一套组件）
+const PROVS=[
+  {id:'wan',title:'万相',why:'出片定稿，必需',need:true,fields:[['apiKey','apiKey（sk-ws- 开头）','password']],defaults:{}},
+  {id:'llm',title:'大模型',why:'写提示词 + 看图挑帧 + agent 大脑，必需',need:true,fields:[['apiKey','apiKey','password'],['baseUrl','baseUrl','text'],['model','模型（要能看图）','text']],defaults:{baseUrl:'https://api.deepseek.com',model:'deepseek-v4-pro'}},
+  {id:'relay',title:'中转站',why:'出立绘 / 图生图；已有立绘可不配',need:false,fields:[['apiKey','apiKey','password'],['baseUrl','baseUrl（…/v1）','text'],['model','图像模型','text'],['price','每张价格（元）','number']],defaults:{baseUrl:'https://jizhiapi.site/v1',model:'gpt-image-2.5',price:'0.05'}},
+  {id:'glm',title:'智谱',why:'CogVideoX-3 抽片，可选',need:false,fields:[['apiKey','apiKey','password'],['model','视频模型','text'],['price','每次价格（包价）','number']],defaults:{model:'cogvideox-3'}},
+  {id:'ark',title:'火山 seedance',why:'免费额度抽姿势，可选',need:false,fields:[['apiKey','apiKey','password']],defaults:{}},
+];
+function provRow(p,c){
+  const st=c?`<span class="ok">✅ 已配置</span> <span class="dim">${esc(c.model||'')}${c.vision_model&&c.vision_model!==c.model?' · 👁 '+esc(c.vision_model):''}</span>`:(p.need?'<span class="bad">未配置（必需）</span>':'<span class="dim">未配置</span>');
+  return `<div class="prov" data-p="${p.id}"><div class="nm"><b>${p.title}</b><span>${p.why}</span><div class="out">${st}</div></div>
+    <div><div class="fs">${p.fields.map(([k,l,t])=>`<div><label>${l}</label><input type="${t}" data-k="${k}" value="${k==='apiKey'?'':esc((c&&c[k])||p.defaults[k]||'')}" placeholder="${k==='apiKey'&&c?'已保存，留空不改':''}" autocomplete="off"></div>`).join('')}</div><div class="out" data-out></div></div>
+    <div class="row" style="flex-direction:column;align-items:stretch"><button class="btn sm sv">保存</button><button class="btn sm ghost pr" ${c?'':'disabled'}>检查</button></div></div>`;
 }
-
-// ───────── 生成表单
-let ACTS={}, COMBO=[];                 // ⚑ 本页的动作表：内置 + 预设 + 自定义；COMBO = 连招顺序
-function actCard(k,a,custom){
-  const provOpts=Object.entries(D.providers).map(([p,v])=>`<option value="${p}">${v.label}</option>`).join('');
-  return `<div class="act ${custom?'open':''}" data-a="${k}" data-custom="${custom?1:0}">
-    <div class="hd"><label style="margin:0"><input type="checkbox" class="aon" checked> ${custom?`<input type="text" class="lbl" value="${a.label||k}" style="width:110px">`:a.label} <span class="dim">(${k})</span></label>
-      <span><span class="cost" data-cost="${k}"></span> <button class="btn sm ghost tog">参数</button>${custom?' <button class="btn sm ghost rmact">✕</button>':''}</span></div>
-    <div class="opts">
-      ${custom?`<label>运动描述（只写要看到的姿态和方向；该动的部位点名并给幅度；结尾回到开头站姿）</label><textarea class="motion">${a.motion||''}</textarea>`:''}
-      <div class="row"><label style="margin:0">provider <select class="prov" style="width:auto">${provOpts}</select></label>
-        <label style="margin:0">model <input type="text" class="model" value="${D.providers.dashscope.model}" style="width:220px"></label></div>
-      <div class="row" style="margin-top:6px">
-        <label style="margin:0">分辨率 <select class="res" style="width:auto"><option>480P</option><option>720P</option></select></label>
-        <label style="margin:0">秒 <input type="number" class="dur" value="${a.dur}" min="2" max="30"></label>
-        <label style="margin:0">帧数 <input type="number" class="frames" value="${a.frames}" min="2" max="24"></label>
-        <label style="margin:0">挑帧 <select class="pick" style="width:auto"><option>loop</option><option>even</option><option>still</option></select></label>
-        <label style="margin:0">格子 <input type="text" class="cell" value="${a.cell}" style="width:90px"></label></div>
-      <label>补充运动描述（追加到模板，可空）</label><input type="text" class="extra">
-    </div></div>`;
+function renderProvs(){
+  const html=PROVS.map(p=>provRow(p,D.creds[p.id])).join('');
+  $('#setProvs').innerHTML=html;$('#gateProvs').innerHTML=PROVS.filter(p=>p.id!=='ark').map(p=>provRow(p,D.creds[p.id])).join('');
+  $$('.prov').forEach(el=>{const id=el.dataset.p,p=PROVS.find(x=>x.id===id),out=el.querySelector('[data-out]');
+    el.querySelector('.sv').onclick=async()=>{const b={provider:id};el.querySelectorAll('input').forEach(i=>{if(i.value.trim())b[i.dataset.k]=i.value.trim()});
+      if(!b.apiKey){if(D.creds[id]){b.apiKey=undefined;out.innerHTML='<span class="dim">要改 key 才需要重填；模型/地址改动需要连 key 一起填</span>';return}out.innerHTML='<span class="bad">key 是空的</span>';return}
+      if(id==='llm'&&b.model)b.vision_model=b.model;
+      try{await api('/api/creds',{method:'POST',body:b});out.innerHTML='<span class="ok">已保存，检查中…</span>';await loadDoctor();await probe(id,out)}catch(e){out.innerHTML=`<span class="bad">${esc(e.message)}</span>`}};
+    el.querySelector('.pr').onclick=()=>probe(id,out)});
+  const ok=!!(D.creds.wan&&D.creds.llm);$('#gateDone').disabled=!ok;$('#gateMsg').textContent=ok?'万相和大模型都在了，可以开始。中转站没配的话只能用已有立绘。':'至少要配好万相和大模型。';
 }
+async function probe(id,out){out.innerHTML='检查中…';try{const r=await api(`/api/creds/${id}/probe`,{method:'POST',body:{}});
+  const models=r.models?.length?`<div class="dim">模型：${r.models.slice(0,12).map(esc).join(' · ')}${r.models.length>12?' …':''}</div>`:'';
+  const vis=r.vision===true?'<div class="ok">✅ 能看图（可以挑帧）</div>':(r.vision===false?'<div class="warn">⛔ 这个模型不认图，挑帧会退回自动</div>':'');
+  out.innerHTML=`<div class="${r.ok?'ok':'bad'}">${esc(r.msg)}</div>${vis}${(r.notes||[]).map(n=>`<div class="warn">${esc(n)}</div>`).join('')}${r.detail?`<div class="dim mono">${esc(typeof r.detail==='string'?r.detail:JSON.stringify(r.detail)).slice(0,300)}</div>`:''}${models}`;
+  // ⚑ 设置页里同一家可能有两处（首次引导 + 设置），⚑ 同步一下
+  $$(`.prov[data-p="${id}"] [data-out]`).forEach(o=>{if(o!==out)o.innerHTML=out.innerHTML})}catch(e){out.innerHTML=`<span class="bad">${esc(e.message)}</span>`}}
+function gate(){const ok=!!(D.creds.wan&&D.creds.llm);$('#setupGate').hidden=ok;$('#flow').hidden=!ok}
+$('#gateDone').onclick=gate;
+
+// ───────── doctor
+async function loadDoctor(){D=await api('/api/doctor');$('#cFile').textContent=D.creds_file;$('#portraitCost').textContent='¥'+D.prices.portrait.toFixed(2);$('#editCost').textContent='¥'+D.prices.portrait.toFixed(2);renderProvs();if(!ACTS||!Object.keys(ACTS).length)buildActs();estimate()}
+
+// ───────── 立绘
+function portraitReady(){return !!(W.portraitJob||W.portraitPath)}
+function showPres(src,status){$('#pres').hidden=false;$('#presImg').src=src;$('#presStatus').innerHTML=status;$('#presProg').innerHTML='';$('#btnPortraitOk').hidden=false;$('#btnPortraitRedo').hidden=true;$('#btnPortraitEdit').hidden=!W.portraitJob;$('#editBox').hidden=true}
+$('#portraitFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;const fd=new FormData();fd.append('file',f);W.portraitPath=(await api('/api/upload/portrait',{method:'POST',body:fd})).path;W.portraitJob=null;showPres(URL.createObjectURL(f),'已上传的立绘 —— 要求灰底、全身、朝左');acceptPortrait()};
+$('#jobPortraitSel').onchange=()=>{const id=$('#jobPortraitSel').value;if(!id)return;const j=JOBSTATE.find(x=>x.id===id);W.portraitJob=id;W.portraitPath=null;showPres(`/api/jobs/${id}/file/${j.artifacts.portrait}`,`作品 ${id} 的立绘`);acceptPortrait()};
+function autoOpts(){return {prompt_llm:!!D.creds.llm,prompt_llm_provider:'llm',vlm_pick:!!D.creds.llm,stop_on_collapse:true,weapon_pose:$('#weaponPose').value}}
+async function startPortrait(extra){
+  if(!demo&&!D.creds.relay){$('#portraitMsg').textContent='没配中转站，出不了立绘 —— 去「设置」配，或用已有立绘';return}
+  if(!extra&&!$('#prompt').value.trim()){$('#portraitMsg').textContent='先写一句话';$('#prompt').focus();return}
+  $('#portraitMsg').textContent='';W.portraitJob=null;W.portraitPath=null;
+  try{const st=await api('/api/jobs',{method:'POST',body:{mode:'generate',prompt:$('#prompt').value,style:$('#style').value,actions:[],confirm:true,options:autoOpts(),...(extra||{})}});
+    W.pJob=st.id;$('#pres').hidden=false;$('#presImg').removeAttribute('src');$('#presStatus').textContent='出图中…（约 40 秒）';$('#presProg').innerHTML='';
+    $('#btnPortraitOk').hidden=$('#btnPortraitRedo').hidden=$('#btnPortraitEdit').hidden=true;$('#editBox').hidden=true;$('#btnPortrait').disabled=true;pollJobs()}
+  catch(e){$('#portraitMsg').textContent=e.message;$('#btnPortrait').disabled=false}}
+$('#btnPortrait').onclick=()=>startPortrait();
+$('#btnPortraitRedo').onclick=()=>startPortrait();
+$('#btnPortraitEdit').onclick=()=>{$('#editBox').hidden=!$('#editBox').hidden;$('#editPrompt').focus()};
+$('#btnEditGo').onclick=()=>{if(!W.portraitJob){$('#portraitMsg').textContent='改版要基于一张作品里的立绘';return}if(!$('#editPrompt').value.trim())return;const base=W.portraitJob;startPortrait({portrait_from:{job:base,path:'out/01_portrait.png'},portrait_edit:$('#editPrompt').value})};
+function renderPortraitJob(j){
+  $('#presProg').innerHTML=(j.steps||[]).map(s=>`<div class="${s.status}"><span class="dot"></span>${esc(s.label)}</div>`).join('');
+  if(j.status==='done'&&j.artifacts.portrait){$('#presImg').src=`/api/jobs/${j.id}/file/${j.artifacts.portrait}?t=${j.id}`;$('#presStatus').innerHTML=`✅ 立绘已出（¥${j.cost.spent.toFixed(2)}）。看清楚：全身 / 朝左 / 灰底 / 武器姿势。不满意就再出，别带着将就的图往下走。`;
+    $('#btnPortraitOk').hidden=$('#btnPortraitRedo').hidden=$('#btnPortraitEdit').hidden=false;$('#btnPortrait').disabled=false;W.portraitJob=j.id;W.portraitPath=null}
+  else if(j.status==='failed'){$('#presStatus').innerHTML=`<span class="bad">✗ ${esc(j.error||'失败')}</span>`;$('#btnPortraitRedo').hidden=false;$('#btnPortrait').disabled=false}}
+$('#btnPortraitOk').onclick=()=>{acceptPortrait();$('#actCard').scrollIntoView({behavior:'smooth',block:'start'})};
+function acceptPortrait(){$('#portraitInUse').innerHTML=W.portraitJob?`使用作品 <b>${W.portraitJob}</b> 的立绘`:'使用你上传的立绘';estimate()}
+function usePortraitOf(id){W.portraitJob=id;W.portraitPath=null;const j=JOBSTATE.find(x=>x.id===id);if(j)showPres(`/api/jobs/${id}/file/${j.artifacts.portrait}`,`作品 ${id} 的立绘`);acceptPortrait();showTab('gen');$('#actCard').scrollIntoView({behavior:'smooth'})}
+
+// ───────── 动作（chips + 每个动作一个 ⚙ 面板）
+let ACTS={}, COMBO=[], SEL=new Set(['walk','attack']);
+function buildActs(){ACTS=JSON.parse(JSON.stringify(D.actions));COMBO=[];renderActs()}
+function optsPanel(k,a,custom){const provOpts=Object.entries(D.providers).map(([p,v])=>`<option value="${p}">${esc(v.label)}</option>`).join('');
+  return `<div class="opts" data-a="${k}">
+    ${custom?`<div class="row"><label style="margin:0">名字 <input type="text" class="lbl" value="${esc(a.label||k)}" style="width:120px"></label></div><label>运动描述（只写要看到的姿态和方向；该动的部位点名给幅度；结尾回到开头站姿）</label><textarea class="motion" style="min-height:60px">${esc(a.motion||'')}</textarea>`:''}
+    <div class="row" style="margin-top:6px"><label style="margin:0">provider <select class="prov" style="width:auto">${provOpts}</select></label><label style="margin:0">model <input type="text" class="model" value="${D.providers.dashscope.model}" style="width:180px"></label>
+      <label style="margin:0">分辨率 <select class="res" style="width:auto"><option>480P</option><option>720P</option></select></label>
+      <label style="margin:0">秒 <input type="number" class="dur" value="${a.dur}" min="2" max="30"></label>
+      <label style="margin:0">帧数 <input type="number" class="frames" value="${a.frames}" min="2" max="24"></label>
+      <label style="margin:0">挑帧 <select class="pick" style="width:auto"><option>loop</option><option>even</option><option>still</option></select></label>
+      <label style="margin:0">格子 <input type="text" class="cell" value="${a.cell}" style="width:90px"></label></div>
+    <label>补充运动描述（追加到模板，可空）</label><input type="text" class="extra">
+    ${custom?'<div class="row" style="margin-top:6px"><button class="btn sm ghost rmact">删除这个动作</button></div>':''}</div>`}
 function renderActs(){
-  $('#acts').innerHTML=Object.entries(ACTS).map(([k,a])=>actCard(k,a,!D.actions[k])).join('')+
-    `<div class="row" style="margin-top:8px">${Object.entries(D.presets).map(([k,p])=>`<button class="btn sm ghost preset" data-p="${k}">＋ ${p.label}</button>`).join('')}
-     <button class="btn sm ghost" id="addCustom">＋ 自定义动作</button>${COMBO.length?`<span class="dim" style="font-size:12px">连招顺序：${COMBO.join(' → ')}</span>`:''}</div>`;
-  $$('.act').forEach(el=>{
-    const k=el.dataset.a;el.querySelector('.pick').value=ACTS[k].pick;
-    el.querySelector('.tog').onclick=()=>el.classList.toggle('open');
-    el.querySelector('.prov').onchange=e=>{el.querySelector('.model').value=D.providers[e.target.value].model;estimate()};
-    el.querySelectorAll('input,select,textarea').forEach(i=>i.addEventListener('input',estimate));
-    const rm=el.querySelector('.rmact');if(rm)rm.onclick=()=>{delete ACTS[k];COMBO=COMBO.filter(x=>x!==k);renderActs();estimate()};
-  });
-  $$('.preset').forEach(b=>b.onclick=()=>{const p=D.presets[b.dataset.p];Object.assign(ACTS,JSON.parse(JSON.stringify(p.actions)));COMBO=[...p.combo];renderActs();estimate()});
-  $('#addCustom').onclick=()=>{const k=prompt('动作 key（英文，如 dash / hurt / die）：');if(!k||ACTS[k])return;ACTS[k]={...D.custom_defaults,label:k};renderActs();estimate()};
-  estimate();
-}
-function buildActs(){
-  ACTS=JSON.parse(JSON.stringify(D.actions));COMBO=[];renderActs();
-  $$('input[name=mode]').forEach(r=>r.onchange=estimate);
-  $('#portraitFile').onchange=async e=>{const f=e.target.files[0];if(!f){portraitPath=null;estimate();return}
-    const fd=new FormData();fd.append('file',f);const r=await api('/api/upload/portrait',{method:'POST',body:fd});portraitPath=r.path;$('#portraitNote').textContent='已上传，将跳过出图';estimate()};
-  $('#baseFile').onchange=async e=>{const f=e.target.files[0];if(!f){basePath=null;return}
-    const fd=new FormData();fd.append('file',f);const r=await api('/api/upload/portrait',{method:'POST',body:fd});basePath=r.path;$('#baseSel').value='';$('#baseNote').textContent='底图已上传：'+f.name};
-}
-let basePath=null;
-function portraitFrom(){const j=$('#baseSel').value;if(j)return {job:j,path:'out/01_portrait.png'};if(basePath)return {upload:basePath};return null}
-function readOpts(){
-  const o={};
-  $$('.act').forEach(el=>{o[el.dataset.a]={provider:el.querySelector('.prov').value,model:el.querySelector('.model').value.trim(),
-    res:el.querySelector('.res').value,dur:+el.querySelector('.dur').value,frames:+el.querySelector('.frames').value,
-    pick:el.querySelector('.pick').value,cell:el.querySelector('.cell').value.trim(),extra:el.querySelector('.extra').value.trim()}});
-  o.prompt_llm=$('#llm').checked;o.prompt_llm_provider=$('#llmProv').value;o.prompt_llm_model=$('#llmModel').value.trim();
-  o.vlm_pick=$('#vlm').checked;o.vlm_model=$('#vlmModel').value.trim();o.stop_on_collapse=true;return o;
-}
-function readCustom(){          // ⚑ 预设和自定义都以 custom_actions 形式送后端（⚑ 带 label / motion / checks）
-  const c={};
-  $$('.act[data-custom="1"]').forEach(el=>{const k=el.dataset.a;c[k]={...ACTS[k],label:el.querySelector('.lbl').value.trim()||k,motion:el.querySelector('.motion').value.trim()}});
-  return c;
-}
+  $('#acts').innerHTML=Object.entries(ACTS).map(([k,a])=>`<span class="chip ${SEL.has(k)?'on':''}" data-a="${k}"><span class="nm">${esc(a.label||k)}</span><span class="p" data-cost="${k}"></span><span class="gear" title="参数">⚙</span></span>`).join('')+
+    Object.entries(D.presets).map(([k,p])=>`<span class="chip preset" data-p="${k}">＋ ${esc(p.label)}</span>`).join('')+`<span class="chip" id="addCustom">＋ 自定义</span>`;
+  $('#actOpts').innerHTML=Object.entries(ACTS).map(([k,a])=>optsPanel(k,a,!D.actions[k])).join('');
+  $$('.opts').forEach(el=>{const k=el.dataset.a;el.querySelector('.pick').value=ACTS[k].pick;el.querySelector('.prov').onchange=e=>{el.querySelector('.model').value=D.providers[e.target.value].model;estimate()};
+    el.querySelectorAll('input,select,textarea').forEach(i=>i.addEventListener('input',()=>{const l=el.querySelector('.lbl');if(l)$(`.chip[data-a="${k}"] .nm`).textContent=l.value||k;estimate()}));
+    const rm=el.querySelector('.rmact');if(rm)rm.onclick=()=>{delete ACTS[k];SEL.delete(k);COMBO=COMBO.filter(x=>x!==k);renderActs()}});
+  $$('.chip[data-a]').forEach(c=>{const k=c.dataset.a;c.onclick=e=>{if(e.target.classList.contains('gear')){const o=$(`.opts[data-a="${k}"]`);const on=o.classList.contains('on');$$('.opts').forEach(x=>x.classList.remove('on'));o.classList.toggle('on',!on);return}SEL.has(k)?SEL.delete(k):SEL.add(k);c.classList.toggle('on',SEL.has(k));estimate()}});
+  $$('.chip.preset').forEach(b=>b.onclick=()=>{const p=D.presets[b.dataset.p];Object.assign(ACTS,JSON.parse(JSON.stringify(p.actions)));COMBO=[...p.combo];p.combo.forEach(k=>SEL.add(k));renderActs()});
+  $('#addCustom').onclick=()=>{const k=prompt('动作 key（英文，如 dash / hurt / die）：');if(!k||ACTS[k])return;ACTS[k]={...D.custom_defaults,label:k};SEL.add(k);renderActs();$(`.opts[data-a="${k}"]`).classList.add('on')};
+  estimate()}
+function readOpts(){const o=autoOpts();$$('.opts').forEach(el=>{o[el.dataset.a]={provider:el.querySelector('.prov').value,model:el.querySelector('.model').value.trim(),res:el.querySelector('.res').value,dur:+el.querySelector('.dur').value,frames:+el.querySelector('.frames').value,pick:el.querySelector('.pick').value,cell:el.querySelector('.cell').value.trim(),extra:el.querySelector('.extra').value.trim()}});return o}
+function readCustom(){const c={};$$('.opts').forEach(el=>{const k=el.dataset.a;if(D.actions[k])return;c[k]={...ACTS[k],label:(el.querySelector('.lbl')?.value.trim())||k,motion:el.querySelector('.motion')?.value.trim()||''}});return c}
 const lbl=(j,a)=>(j.action_defs&&j.action_defs[a]&&j.action_defs[a].label)||(D.actions[a]&&D.actions[a].label)||a;
 function vprice(p,r,d,m){if(p==='zhipu'){const z=D.prices.zhipu||{};return z[m]!=null?z[m]:1.0}if(p!=='dashscope')return 0;const k=`${p}|${r}|${d}`;if(D.prices.video[k]!=null)return D.prices.video[k];return +((D.prices.per_sec[`${p}|${r}`]||0.21)*d).toFixed(2)}
-function estimate(){
-  const gen=$('input[name=mode]:checked').value==='generate';$('#confirmWrap').hidden=!gen;
-  const o=readOpts();let rows=[],total=0;
-  const port=gen&&!portraitPath&&!portraitJob?D.prices.portrait:0;rows.push(['角色（出立绘）',port]);total+=port;
-  $$('.act').forEach(el=>{const k=el.dataset.a,on=el.querySelector('.aon').checked;const p=on&&gen?vprice(o[k].provider,o[k].res,o[k].dur,o[k].model):0;
-    const name=(el.querySelector('.lbl')&&el.querySelector('.lbl').value.trim())||ACTS[k].label||k;
-    el.querySelector('[data-cost]').textContent=on?(gen?(p?`¥${p.toFixed(2)}`:'免费'):'¥0'):'';if(on){rows.push([name+`（${o[k].provider} ${o[k].res}/${o[k].dur}s）`,p]);total+=p}});
-  $('#costTable').innerHTML=rows.map(([n,p])=>`<tr><td>${n}</td><td class="cost" style="text-align:right">¥${p.toFixed(2)}</td></tr>`).join('');
-  $('#costTotal').textContent='¥'+total.toFixed(2);
-}
-let portraitJob=null;            // ⚑ 「满意，用这张立绘出动作」选中的任务 id
-async function submitJob(actions){
-  const m=$('input[name=mode]:checked').value;
+function estimate(){if(!D||!Object.keys(ACTS).length)return;const o=readOpts();let total=0;
+  Object.keys(ACTS).forEach(k=>{const p=demo?0:vprice(o[k].provider,o[k].res,o[k].dur,o[k].model);$(`[data-cost="${k}"]`).textContent=p?`¥${p.toFixed(2)}`:(demo?'':'免费');if(SEL.has(k))total+=p});
+  $('#costTotal').textContent=demo?'（试运行）':'¥'+total.toFixed(2)}
+$('#go').onclick=async()=>{const actions=[...SEL].filter(k=>ACTS[k]);if(!actions.length){$('#goMsg').textContent='至少选一个动作';return}
+  if(!demo&&!portraitReady()){$('#goMsg').textContent='先出一张立绘（或用已有的）';$('#prompt').scrollIntoView({behavior:'smooth'});return}
   $('#goMsg').textContent='';
-  try{
-    const st=await api('/api/jobs',{method:'POST',body:{mode:m,prompt:$('#prompt').value,style:$('#style').value,actions,options:readOpts(),
-      custom_actions:readCustom(),combo:COMBO.filter(k=>actions.includes(k)),confirm:$('#confirm').checked,portrait_upload:portraitPath,
-      portrait_job:portraitJob,portrait_from:portraitFrom(),portrait_edit:$('#editPrompt').value}});
-    selJob=st.id;logOff=0;$('#log').textContent='';await pollJobs();
-  }catch(e){$('#goMsg').textContent=e.message;$('#goMsg').className='bad'}
-}
-$('#go').onclick=()=>submitJob($$('.act').filter(el=>el.querySelector('.aon').checked).map(el=>el.dataset.a));
-$('#goPortrait').onclick=()=>{if($('input[name=mode]:checked').value!=='generate'){$('#goMsg').textContent='只出立绘要选「真实生成」';return}portraitJob=null;portraitPath=null;submitJob([])};
-function usePortraitOf(id){portraitJob=id;portraitPath=null;$('#portraitJobNote').innerHTML=`✅ 将使用任务 <b>${id}</b> 的立绘出动作（不再花出图的钱）。<a href="#" id="clearPJ">取消</a>`;$('#clearPJ').onclick=e=>{e.preventDefault();portraitJob=null;$('#portraitJobNote').textContent='';estimate()};estimate();window.scrollTo({top:0,behavior:'smooth'})}
+  try{const st=await api('/api/jobs',{method:'POST',body:{mode:demo?'demo':'generate',prompt:$('#prompt').value,style:$('#style').value,actions,options:readOpts(),custom_actions:readCustom(),combo:COMBO.filter(k=>actions.includes(k)),confirm:true,portrait_upload:W.portraitPath,portrait_job:W.portraitJob}});
+    W.aJob=st.id;W.logJob=st.id;W.logOff=0;$('#log').textContent='';$('#curCard').hidden=false;$('#curCard').scrollIntoView({behavior:'smooth',block:'start'});pollJobs()}
+  catch(e){$('#goMsg').textContent=e.message}};
 
-// ───────── 任务列表 / 日志
+// ───────── 结果
+function renderCurJob(j){
+  $('#curJobTitle').innerHTML=`<span class="st ${j.status}">${j.status}</span> &nbsp;${j.id} · 实花 <span class="cost">¥${j.cost.spent.toFixed(2)}</span>`;
+  $('#curProg').innerHTML=(j.steps||[]).map(s=>`<div class="${s.status}"><span class="dot"></span>${esc(s.label)}</div>`).join('')+(j.error?`<div class="failed"><span class="dot"></span><span class="bad">${esc(j.error)}</span></div>`:'');
+  const done=j.status==='done';
+  $('#curResults').innerHTML=(j.actions||[]).map(a=>{const art=j.artifacts[a]||{};if(!art.gif)return '';const m=art.metrics||{};
+    return `<div class="res"><img src="/api/jobs/${j.id}/file/${art.gif}?t=${j.id}" alt="${a}"><div class="small" style="margin-top:6px"><b>${esc(lbl(j,a))}</b> · ${art.frames} 帧 · ¥${(j.cost.spent_by?.[lbl(j,a)]??0).toFixed(2)}</div>
+      <div class="dim small">形变 ${m['形变%']?.toFixed(1)??'-'}% · 循环缝 ${m['循环缝']?.toFixed(2)??'-'} · 亮度漂 ${m['亮度漂']?.toFixed(1)??'-'}${art.anim_check?(art.anim_check.pass?' · 自检✅':' · 自检❌'):''}${(art.sheet_info||{}).no_loop?' · <span class="warn">没找到循环段</span>':''}</div></div>`}).join('');
+  $('#btnPreview').hidden=!(done&&j.actions&&j.actions.length);$('#btnExport').hidden=!done;$('#btnAnother').hidden=!done;
+  $('#btnPreview').onclick=()=>openJob(j.id);$('#btnExport').onclick=()=>open(`/api/jobs/${j.id}/export`);$('#btnAnother').onclick=()=>$('#actCard').scrollIntoView({behavior:'smooth'})}
+$('#btnLog').onclick=()=>{$('#curLogWrap').hidden=!$('#curLogWrap').hidden;if(W.aJob){W.logJob=W.aJob;W.logOff=0;$('#log').textContent='';pollJobs()}};
+
+// ───────── 轮询
 async function pollJobs(){
-  JOBSTATE=await api('/api/jobs');$('#jobCount').textContent=JOBSTATE.length;
-  {const cur=$('#baseSel').value;$('#baseSel').innerHTML='<option value="">— 选一个任务的立绘 —</option>'+JOBSTATE.filter(j=>j.artifacts&&j.artifacts.portrait&&j.status==='done').map(j=>`<option value="${j.id}">${j.id} · ${(j.prompt||'').slice(0,24)}</option>`).join('');$('#baseSel').value=cur}
-  $('#jobs').innerHTML=JOBSTATE.length?JOBSTATE.map(j=>{
-    const by=Object.entries(j.cost.by||{}).map(([k,v])=>`${k} <span class="cost">¥${(j.cost.spent_by?.[k]??0).toFixed(2)}<span class="dim">/${v.toFixed(2)}</span></span>`).join(' · ');
-    return `<div class="job ${j.id===selJob?'sel':''}" data-id="${j.id}">
-      <div class="row" style="justify-content:space-between"><b>${j.id}</b><span class="st ${j.status}">${j.status}${j.mode==='demo'?' · demo':''}</span></div>
-      <div class="dim" style="font-size:12px">${(j.prompt||'(demo)').slice(0,60)}</div>
-      <div style="font-size:12px;margin-top:4px">实花/预估：<span class="cost">¥${j.cost.spent.toFixed(2)}</span><span class="dim">/${j.cost.est.toFixed(2)}</span> &nbsp; ${by}</div>
-      <div class="steps">${(j.steps||[]).map(s=>`<span class="step ${s.status}">${s.label}</span>`).join('')}</div>
-      ${j.error?`<div class="bad" style="font-size:12px;margin-top:4px">${j.error}</div>`:''}
-      ${j.artifacts&&j.artifacts.portrait&&j.status==='done'?`<div class="row" style="margin-top:6px;gap:8px"><img src="/api/jobs/${j.id}/file/${j.artifacts.portrait}" style="height:96px;border:1px solid var(--line);border-radius:4px;background:#888"><button class="btn sm usep">满意，用这张立绘出动作</button></div>`:''}
-      <div class="row" style="margin-top:6px;gap:6px"><button class="btn sm ghost prev" ${j.status==='done'&&j.actions&&j.actions.length?'':'disabled'}>预览</button><button class="btn sm ghost del">删除</button></div>
-    </div>`}).join(''):'<span class="dim">还没有任务</span>';
-  $$('.job').forEach(el=>{el.onclick=e=>{if(e.target.tagName==='BUTTON'||e.target.tagName==='IMG')return;selJob=el.dataset.id;logOff=0;$('#log').textContent='';pollJobs()};
+  JOBSTATE=(await api('/api/jobs')).filter(j=>!j.agent);$('#jobCount').textContent=JOBSTATE.length;
+  const withP=JOBSTATE.filter(j=>j.artifacts&&j.artifacts.portrait&&j.status==='done');
+  {const s=$('#jobPortraitSel');const cur=s.value;s.innerHTML='<option value="">— 从作品里选 —</option>'+withP.map(j=>`<option value="${j.id}">${j.id} · ${esc((j.prompt||'').slice(0,28))||'(改版)'}</option>`).join('');s.value=cur}
+  if(W.pJob){const j=JOBSTATE.find(x=>x.id===W.pJob);if(j)renderPortraitJob(j)}
+  if(W.aJob){const j=JOBSTATE.find(x=>x.id===W.aJob);if(j)renderCurJob(j)}
+  renderGallery();
+  if(W.logJob){const r=await api(`/api/jobs/${W.logJob}/log?offset=${W.logOff}`);if(r.text){for(const el of ['#log','#libLog']){$(el).textContent+=r.text;$(el).scrollTop=1e9}}W.logOff=r.offset;$('#logJob').textContent=W.logJob}
+  if(JOBSTATE.some(j=>j.status==='running'||j.status==='queued'))setTimeout(pollJobs,1500)}
+function renderGallery(){
+  $('#gallery').innerHTML=JOBSTATE.length?JOBSTATE.map(j=>{const a=j.artifacts||{};
+    const media=[a.portrait?`<img src="/api/jobs/${j.id}/file/${a.portrait}" title="立绘">`:'',...(j.actions||[]).map(k=>a[k]&&a[k].gif?`<img class="anim" src="/api/jobs/${j.id}/file/${a[k].gif}" title="${esc(lbl(j,k))}">`:'')].join('');
+    const by=Object.entries(j.cost.spent_by||{}).filter(([,v])=>v>0).map(([k,v])=>`${esc(k)} ¥${v.toFixed(2)}`).join(' · ');
+    return `<div class="gcard ${j.id===W.logJob?'sel':''}" data-id="${j.id}"><div class="media">${media||'<span class="dim small">（还没有产物）</span>'}</div>
+      <div class="title" title="${esc(j.prompt||'')}">${esc(j.prompt||'')||(a.portrait_base?'改版立绘':'(试运行)')}</div>
+      <div class="row between small" style="margin-top:6px"><span class="dim">${j.id}${j.mode==='demo'?' · 试运行':''}</span><span class="st ${j.status}">${j.status}</span></div>
+      <div class="small" style="margin-top:4px">¥${j.cost.spent.toFixed(2)}${by?` <span class="dim">（${by}）</span>`:''}</div>
+      ${j.status!=='done'?`<div class="row" style="gap:4px;margin-top:6px">${(j.steps||[]).slice(-3).map(s=>`<span class="stepc ${s.status}">${esc(s.label)}</span>`).join('')}</div>`:''}
+      ${j.error?`<div class="bad small" style="margin-top:4px">${esc(j.error)}</div>`:''}
+      <div class="row" style="margin-top:8px;gap:6px">${a.portrait&&j.status==='done'?`<button class="btn sm usep">用这张立绘出动作</button>`:''}<button class="btn sm ghost prev" ${j.status==='done'&&j.actions&&j.actions.length?'':'disabled'}>预览</button>${j.status==='done'&&j.actions&&j.actions.length?`<a class="btn sm ghost" style="text-decoration:none" href="/api/jobs/${j.id}/export">ZIP</a>`:''}<button class="btn sm ghost del">删除</button></div></div>`}).join(''):'<div class="empty">还没有作品。去「制作」出第一张立绘。</div>';
+  $$('.gcard').forEach(el=>{el.onclick=e=>{if(['BUTTON','IMG','A'].includes(e.target.tagName))return;W.logJob=el.dataset.id;W.logOff=0;$('#libLog').textContent='';pollJobs()};
     const up=el.querySelector('.usep');if(up)up.onclick=()=>usePortraitOf(el.dataset.id);
-    el.querySelector('.prev').onclick=()=>{openJob(el.dataset.id)};
-    el.querySelector('.del').onclick=async()=>{if(confirm('删除任务 '+el.dataset.id+'？'))await api('/api/jobs/'+el.dataset.id,{method:'DELETE'});pollJobs()}});
-  if(selJob){const r=await api(`/api/jobs/${selJob}/log?offset=${logOff}`);if(r.text){$('#log').textContent+=r.text;$('#log').scrollTop=1e9}logOff=r.offset;$('#logJob').textContent=selJob}
-  if(JOBSTATE.some(j=>j.status==='running'||j.status==='queued'))setTimeout(pollJobs,1500);
-}
+    el.querySelector('.prev').onclick=()=>openJob(el.dataset.id);
+    el.querySelector('.del').onclick=async()=>{if(confirm('删除 '+el.dataset.id+'？'))await api('/api/jobs/'+el.dataset.id,{method:'DELETE'});pollJobs()}})}
 
 // ───────── 预览
-const P={img:null,cell:[192,256],frames:0,holds:[],i:0,t:0,playing:true,src:null,art:null,job:null};
-function openJob(id){const j=JOBSTATE.find(x=>x.id===id);if(!j)return;P.job=j;
-  $('#srcList').innerHTML=j.actions.map(a=>`<button class="btn sm ghost" data-a="${a}">${lbl(j,a)}</button>`).join(' ')+
-    (j.combo&&j.combo.length>1?`<div class="note">连招：${j.combo.map(a=>lbl(j,a)).join(' → ')}（取消窗口在收招帧，见 manifest.combo）</div>`:'')+
-    (j.artifacts.portrait?`<div class="thumbs"><img src="/api/jobs/${j.id}/file/${j.artifacts.portrait}" title="立绘"><img src="/api/jobs/${j.id}/file/${j.artifacts.liubai||''}" title="留白图"></div>`:'');
-  $$('#srcList button').forEach(b=>b.onclick=()=>loadAction(j,b.dataset.a));
-  loadAction(j,j.actions[0]);$$('nav button')[1].click()}
-function loadAction(j,a){const art=j.artifacts[a];if(!art||!art.sheet)return;P.art=art;P.src=`/api/jobs/${j.id}/file/${art.sheet}`;
-  loadSheet(P.src,art.cell,art.frames,art.cols);
-  const L=lbl(j,a),m=art.metrics,mv=art.move,by=j.cost.by[L]||0,sp=j.cost.spent_by?.[L]||0;
-  $('#metrics').innerHTML=`<table>
-    <tr><th>这个动画花了</th><td class="cost">¥${sp.toFixed(2)} <span class="dim">/ 预估 ¥${by.toFixed(2)}${art.provider?` · ${art.provider} ${art.model} ${art.res}/${art.dur}s`:''}</span></td></tr>
+const P={img:null,cell:[192,256],cols:4,frames:0,holds:[],i:0,t:0,playing:true,src:null};
+function openJob(id){const j=JOBSTATE.find(x=>x.id===id)||AGRUNS.find(x=>x.id===id);if(!j)return;
+  $('#srcList').innerHTML=j.actions.map(a=>`<button class="btn sm ghost" data-a="${a}">${esc(lbl(j,a))}</button>`).join('')+(j.combo&&j.combo.length>1?`<div class="note">连招：${j.combo.map(a=>esc(lbl(j,a))).join(' → ')}（取消窗口在收招帧，见 manifest.combo）</div>`:'')+(j.artifacts.portrait?`<div class="thumbs"><img src="/api/jobs/${j.id}/file/${j.artifacts.portrait}" title="立绘">${j.artifacts.liubai?`<img src="/api/jobs/${j.id}/file/${j.artifacts.liubai}" title="留白图">`:''}</div>`:'');
+  $$('#srcList button').forEach(b=>b.onclick=()=>{$$('#srcList button').forEach(x=>x.classList.toggle('on',x===b));loadAction(j,b.dataset.a)});
+  const f=$('#srcList button');if(f){f.classList.add('on');loadAction(j,j.actions[0])}showTab('prev')}
+function loadAction(j,a){const art=j.artifacts[a];if(!art||!art.sheet)return;P.src=`/api/jobs/${j.id}/file/${art.sheet}`;loadSheet(P.src,art.cell,art.frames,art.cols);
+  const L=lbl(j,a),m=art.metrics,mv=art.move,by=(j.cost.by||{})[L]||0,sp=j.cost.spent_by?.[L]||0;
+  $('#metrics').innerHTML=`<table><tr><th>花费</th><td class="cost">¥${sp.toFixed(2)} <span class="dim">${art.provider?`· ${art.provider} ${art.model} ${art.res}/${art.dur}s`:''}</span></td></tr>
     ${m?['动量','形变%','循环缝','剪影密度%','亮度漂'].map(k=>`<tr><th>${k}</th><td class="mono">${m[k].toFixed(2)}</td></tr>`).join(''):'<tr><td colspan=2 class="dim">没有验收数据</td></tr>'}
-    ${art.sheet_info?.period?`<tr><th>步频周期</th><td class="mono">${art.sheet_info.period} 帧${art.sheet_info.no_loop?' <span class="bad">没找到合法循环段</span>':''}</td></tr>`:''}
+    ${art.sheet_info?.period?`<tr><th>步频周期</th><td class="mono">${art.sheet_info.period} 帧${art.sheet_info.no_loop?' <span class="bad">没找到循环段</span>':''}</td></tr>`:''}
     ${mv?`<tr><th>位移</th><td class="mono">右 ${mv.right?.pct??'-'}% · 左 ${mv.left?.pct??'-'}% · 抬升 ${mv.lift?.pct??'-'}%</td></tr>`:''}
-    ${art.anim_check?`<tr><th>图集自检</th><td class="${art.anim_check.pass?'ok':'bad'}">${art.anim_check.pass?'通过':'不通过：'+art.anim_check.issues.join('；')}</td></tr>`:''}
-    ${'blade_ok' in art?`<tr><th>刀变细线</th><td class="${art.blade_ok?'ok':'warn'}">${art.blade_ok?'未发现':'有帧疑似（看日志）'}</td></tr>`:''}
+    ${art.anim_check?`<tr><th>图集自检</th><td class="${art.anim_check.pass?'ok':'bad'}">${art.anim_check.pass?'通过':'不通过：'+esc(art.anim_check.issues.join('；'))}</td></tr>`:''}
+    ${'blade_ok' in art?`<tr><th>刀变细线</th><td class="${art.blade_ok?'ok':'warn'}">${art.blade_ok?'未发现':'有帧疑似'}</td></tr>`:''}
     ${art.foot_trim?`<tr><th>footTrim</th><td class="mono">${art.foot_trim.join(', ')}</td></tr>`:''}
-    ${art.vlm?`<tr><th>VLM</th><td class="${art.vlm.collapse?'bad':''}">${art.vlm.model} 挑 f${art.vlm.frames.join(', f')}${art.vlm.collapse?' · <b>判定崩坏</b>':''}${art.vlm.thin_weapon.length?' · 细线帧 '+art.vlm.thin_weapon.join(','):''}<br><span class="dim">${art.vlm.notes}</span></td></tr>`:''}
-  </table><div class="note">循环缝 >1.5 循环会跳一下；亮度漂突然变大多半是崩了不是动得好。合格区间要配基准素材（README ①）。</div>`;
-  $('#thumbs').innerHTML=[['contact','联络表'],['gif','GIF'],['video','源视频']].filter(([k])=>art[k]).map(([k,n])=>k==='video'?`<video src="/api/jobs/${j.id}/file/${art[k]}" controls style="max-height:120px"></video>`:`<a href="/api/jobs/${j.id}/file/${art[k]}" target="_blank"><img src="/api/jobs/${j.id}/file/${art[k]}" title="${n}"></a>`).join('');
-  $('#dlSheet').onclick=()=>open(P.src);$('#dlGif').onclick=()=>art.gif&&open(`/api/jobs/${j.id}/file/${art.gif}`);$('#dlZip').onclick=()=>open(`/api/jobs/${j.id}/export`);}
-function loadSheet(src,cell,frames,cols){const im=new Image();im.onload=()=>{P.img=im;P.cell=cell;P.cols=cols||Math.max(1,Math.floor(im.width/cell[0]));
-  P.frames=frames||P.cols*Math.max(1,Math.floor(im.height/cell[1]));P.i=0;P.t=0;
-  P.holds=Array(P.frames).fill('');renderHolds();$('#cv').width=cell[0];$('#cv').height=cell[1];applyZoom()};im.src=src}
-function renderHolds(){$('#holds').innerHTML=P.holds.map((h,i)=>`<div>f${i+1}<br><input type="number" data-i="${i}" value="${h}" placeholder="${Math.round(1000/(+$('#fps').value||8))}"></div>`).join('');
-  $$('#holds input').forEach(x=>x.oninput=()=>P.holds[+x.dataset.i]=x.value)}
+    ${art.vlm?`<tr><th>视觉模型</th><td class="${art.vlm.collapse?'bad':''}">挑 f${art.vlm.frames.join(', f')}${art.vlm.collapse?' · <b>判定崩坏</b>':''}${art.vlm.thin_weapon.length?' · 细线帧 '+art.vlm.thin_weapon.join(','):''}<br><span class="dim">${esc(art.vlm.notes)}</span></td></tr>`:''}
+  </table><div class="note">循环缝 &gt;1.5 循环会跳；亮度漂突然变大多半是崩了。</div>`;
+  $('#thumbs').innerHTML=[['contact','联络表'],['gif','GIF'],['video','源视频']].filter(([k])=>art[k]).map(([k,n])=>k==='video'?`<video src="/api/jobs/${j.id}/file/${art[k]}" controls></video>`:`<a href="/api/jobs/${j.id}/file/${art[k]}" target="_blank"><img src="/api/jobs/${j.id}/file/${art[k]}" title="${n}"></a>`).join('');
+  $('#dlSheet').onclick=()=>open(P.src);$('#dlGif').onclick=()=>art.gif&&open(`/api/jobs/${j.id}/file/${art.gif}`);$('#dlZip').onclick=()=>open(`/api/jobs/${j.id}/export`)}
+function loadSheet(src,cell,frames,cols){const im=new Image();im.onload=()=>{P.img=im;P.cell=cell;P.cols=cols||Math.max(1,Math.floor(im.width/cell[0]));P.frames=frames||P.cols*Math.max(1,Math.floor(im.height/cell[1]));P.i=0;P.t=0;P.holds=Array(P.frames).fill('');renderHolds();$('#cv').width=cell[0];$('#cv').height=cell[1];applyZoom()};im.src=src}
+function renderHolds(){$('#holds').innerHTML=P.holds.map((h,i)=>`<div>f${i+1}<br><input type="number" data-i="${i}" value="${h}" placeholder="${Math.round(1000/(+$('#fps').value||8))}"></div>`).join('');$$('#holds input').forEach(x=>x.oninput=()=>P.holds[+x.dataset.i]=x.value)}
 function applyZoom(){const z=+$('#zoom').value||1;$('#cv').style.width=P.cell[0]*z+'px';$('#cv').style.height=P.cell[1]*z+'px'}
 $('#zoom').oninput=applyZoom;$('#fps').oninput=renderHolds;$('#playBtn').onclick=()=>{P.playing=!P.playing;$('#playBtn').textContent=P.playing?'⏸':'▶'};
 let last=performance.now();
 function tick(now){const dt=now-last;last=now;const ctx=$('#cv').getContext('2d');
   if(P.img){const [cw,ch]=P.cell;const hold=i=>+P.holds[i]||Math.round(1000/(+$('#fps').value||8));
     if(P.playing){P.t+=dt;while(P.t>=hold(P.i)){P.t-=hold(P.i);if(P.i+1>=P.frames){if($('#loopc').checked)P.i=0;else{P.playing=false;break}}else P.i++}}
-    ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,cw,ch);
-    const sx=i=>(i%P.cols)*cw, sy=i=>Math.floor(i/P.cols)*ch;          // ⚑ 多行图集按 cols 折行
+    ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,cw,ch);const sx=i=>(i%P.cols)*cw,sy=i=>Math.floor(i/P.cols)*ch;
     if($('#onion').checked){const p=(P.i-1+P.frames)%P.frames;ctx.globalAlpha=.3;ctx.drawImage(P.img,sx(p),sy(p),cw,ch,0,0,cw,ch);ctx.globalAlpha=1}
-    ctx.drawImage(P.img,sx(P.i),sy(P.i),cw,ch,0,0,cw,ch);
-    $('#frameInfo').textContent=`f${P.i+1}/${P.frames} · ${cw}×${ch} · hold ${hold(P.i)}ms`}
+    ctx.drawImage(P.img,sx(P.i),sy(P.i),cw,ch,0,0,cw,ch);$('#frameInfo').textContent=`f${P.i+1}/${P.frames} · ${cw}×${ch} · hold ${hold(P.i)}ms`}
   requestAnimationFrame(tick)}
 requestAnimationFrame(tick);
-
-// ───────── 提取
-$('#extPrev').onclick=()=>{const f=$('#extFile').files[0];if(!f)return;const u=URL.createObjectURL(f);P.art=null;P.src=u;loadSheet(u,[+$('#extW').value,+$('#extH').value]);
-  $('#metrics').innerHTML='<span class="dim">上传的图集：无验收数据</span>';$('#thumbs').innerHTML='';$('#srcList').innerHTML='<span class="dim">上传：'+f.name+'</span>';
-  $('#dlSheet').onclick=()=>open(u);$('#dlGif').onclick=null;$('#dlZip').onclick=()=>$('#extZip').click();$$('nav button')[1].click()};
-$('#extZip').onclick=async()=>{const f=$('#extFile').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);fd.append('cell',`${$('#extW').value}x${$('#extH').value}`);
-  const r=await fetch('/api/extract',{method:'POST',body:fd});const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='frames.zip';a.click()};
-
-// ───────── 凭据
-const HINT={wan:'拿 key：platform.qianwenai.com/try-ai?scene=video → 万相 3.0-视频生成 → 右上角「获取 API Key」。sk-ws- 开头的业务空间 key：baseUrl 留空即用公共域名 https://dashscope.aliyuncs.com/api/v1（实测可用）。普通 key 必须填「独立业务空间」专属域名 https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1（公共域名 401 且提示 key 格式不对）；域名在控制台导出的 apiKey CSV 里，字段 dashScope。',
-  relay:'OpenAI 兼容中转站，形如 https://xxx/v1。⚠ 图像模型名各家不同（脚本默认的 gpt-image-2-adobe-xy 多半不存在）：保存后点「检查」列出它有哪些，再把要用的填进 model（如 gpt-image-2.5）。',glm:'默认 https://open.bigmodel.cn/api/paas/v4。视频模型填 model（cogvideox-3，标价 ¥1/次，支持首尾帧；买了包就在「每次价格」填包价如 0.10）。「检查」会用 1 token 探聊天模型。',
-  ark:'默认 https://ark.cn-beijing.volces.com/api/v3。「检查」列出 seedance 系列可用模型。',minimax:'默认 https://api.minimaxi.com',
-  llm:'任意 OpenAI 兼容端点（智谱 https://open.bigmodel.cn/api/paas/v4 · DeepSeek https://api.deepseek.com · 中转站 https://xxx/v1）。只用于把一句话扩成四段提示词，和出片用的 glm 分开配。「检查」会用 1 token 探 model 能不能聊。'};
-$('#cProv').onchange=()=>{const p=$('#cProv').value;$('#cHint').textContent=HINT[p];$('#cWsWrap').style.display=$('#cWs').style.display=p==='wan'?'':'none';$('#cModelWrap').style.display=$('#cModel').style.display=(p==='llm'||p==='relay'||p==='glm')?'':'none';$('#cVModelWrap').style.display=$('#cVModel').style.display=p==='llm'?'':'none';$('#cPriceWrap').style.display=$('#cPrice').style.display=p==='glm'?'':'none'};$('#cProv').onchange();
-$('#cSave').onclick=async()=>{try{await api('/api/creds',{method:'POST',body:{provider:$('#cProv').value,baseUrl:$('#cBase').value,apiKey:$('#cKey').value,workspaceId:$('#cWs').value,model:$('#cModel').value,vision_model:$('#cVModel').value,price:$('#cPrice').value}});
-  $('#cKey').value='';$('#cMsg').textContent='已保存';$('#cMsg').className='ok';await loadDoctor()}catch(e){$('#cMsg').textContent=e.message;$('#cMsg').className='bad'}};
-function renderCredTable(){$('#credTable').innerHTML='<tr><th>provider</th><th>状态</th><th>来源</th><th>key</th><th></th></tr>'+['wan','relay','glm','ark','minimax','llm'].map(p=>{const c=D.creds[p];
-  return `<tr><td><b>${p}</b>${c&&c.model?`<span class="pill">${c.model}</span>`:''}${c&&c.vision_model?`<span class="pill">👁 ${c.vision_model}</span>`:''}</td><td class="${c?'ok':'dim'}">${c?'已配置':'未配置'}</td><td class="dim">${c?c.from:''}</td><td class="mono dim">${c?c.key:''}</td>
-  <td><button class="btn sm ghost pr" data-p="${p}" ${c?'':'disabled'}>检查</button> ${c&&c.from==='user'?`<button class="btn sm ghost rm" data-p="${p}">删</button>`:''}</td></tr>`}).join('');
-  $$('#credTable .pr').forEach(b=>b.onclick=async()=>{$('#probeOut').textContent='检查中…';try{const r=await api(`/api/creds/${b.dataset.p}/probe`,{method:'POST',body:{model:b.dataset.p==='llm'?($('#cModel').value.trim()||$('#llmModel').value):$('#llmModel').value,vision_model:$('#cVModel').value.trim()||$('#vlmModel').value}});
-    $('#probeOut').innerHTML=`<div class="${r.ok?'ok':'bad'}">${b.dataset.p}: ${r.msg}</div>${r.vision===true?'<div class="ok">✅ 支持看图 —— 可以勾「VLM 挑帧 + 判崩坏」</div>':(r.vision===false?`<div class="warn">⛔ 这个模型不认图（VLM 挑帧那步会退回自动挑）<pre class="mono dim" style="white-space:pre-wrap">${typeof r.vision_detail==='string'?r.vision_detail:JSON.stringify(r.vision_detail)}</pre></div>`:'')}${(r.notes||[]).map(n=>`<div class="warn">${n}</div>`).join('')}${r.detail?`<pre class="mono dim" style="white-space:pre-wrap">${typeof r.detail==='string'?r.detail:JSON.stringify(r.detail)}</pre>`:''}${r.models?.length?`<div>模型：<span class="mono">${r.models.join(' · ')}</span></div>`:''}`}catch(e){$('#probeOut').innerHTML=`<span class="bad">${e.message}</span>`}});
-  $$('#credTable .rm').forEach(b=>b.onclick=async()=>{if(confirm('删除 '+b.dataset.p+' 的 key？')){await api('/api/creds/'+b.dataset.p,{method:'DELETE'});loadDoctor()}})}
+$('#extPrev').onclick=()=>{const f=$('#extFile').files[0];if(!f)return;const u=URL.createObjectURL(f);P.src=u;loadSheet(u,[+$('#extW').value,+$('#extH').value]);$('#metrics').innerHTML='<span class="dim">上传的图集：无验收数据</span>';$('#thumbs').innerHTML='';$('#srcList').innerHTML='<span class="dim">上传：'+esc(f.name)+'</span>';$('#dlSheet').onclick=()=>open(u);$('#dlGif').onclick=null;$('#dlZip').onclick=()=>$('#extZip').click()};
+$('#extZip').onclick=async()=>{const f=$('#extFile').files[0];if(!f)return;const fd=new FormData();fd.append('file',f);fd.append('cell',`${$('#extW').value}x${$('#extH').value}`);const r=await fetch('/api/extract',{method:'POST',body:fd});const b=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='frames.zip';a.click()};
 
 // ───────── Agent
 let agSel=null, agPortraitPath=null;
-$$('input[name=agMode]').forEach(r=>r.onchange=()=>{$('#agConfirmWrap').hidden=$('input[name=agMode]:checked').value!=='generate'});
 $('#agPortrait').onchange=async e=>{const f=e.target.files[0];if(!f){agPortraitPath=null;return}const fd=new FormData();fd.append('file',f);agPortraitPath=(await api('/api/upload/portrait',{method:'POST',body:fd})).path};
-$('#agGo').onclick=async()=>{$('#agMsg').textContent='';try{
-  const st=await api('/api/agent',{method:'POST',body:{goal:$('#agGoal').value,mode:$('input[name=agMode]:checked').value,budget:+$('#agBudget').value,
-    auto_approve:$('#agAuto').checked,brain:$('#agBrain').value.trim()||null,eyes:$('#agEyes').value.trim()||null,confirm:$('#agConfirm').checked,portrait_upload:agPortraitPath}});
-  agSel=st.id;pollAgent()}catch(e){$('#agMsg').textContent=e.message;$('#agMsg').className='bad'}};
+$('#agGo').onclick=async()=>{$('#agMsg').textContent='';try{const st=await api('/api/agent',{method:'POST',body:{goal:$('#agGoal').value,mode:demo?'demo':'generate',budget:+$('#agBudget').value,auto_approve:$('#agAuto').checked,confirm:true,portrait_upload:agPortraitPath}});agSel=st.id;pollAgent()}catch(e){$('#agMsg').textContent=e.message}};
 async function pollAgent(){
-  const runs=(await api('/api/jobs')).filter(j=>j.agent);$('#agCount').textContent=runs.length;
-  $('#agRuns').innerHTML=runs.length?runs.map(j=>`<div class="job ${j.id===agSel?'sel':''}" data-id="${j.id}"><div class="row" style="justify-content:space-between"><b>${j.id}</b><span class="st ${j.status==='waiting'?'running':j.status}">${j.status}${j.mode==='demo'?' · demo':''}</span></div>
-    <div class="dim" style="font-size:12px">${(j.goal||'').slice(0,60)}</div><div style="font-size:12px">实花 <span class="cost">¥${j.cost.spent.toFixed(2)}</span><span class="dim">/预算 ${(j.budget||0).toFixed(2)}</span> · ${(j.transcript||[]).filter(t=>t.tool&&!t.result).length} 步 · 脑 ${j.brain}</div></div>`).join(''):'<span class="dim">还没有</span>';
-  $$('#agRuns .job').forEach(el=>el.onclick=()=>{agSel=el.dataset.id;pollAgent()});
-  if(!agSel)return;const j=runs.find(x=>x.id===agSel);if(!j)return;
-  $('#agId').textContent=j.id;$('#agPreview').hidden=!(j.status==='done'&&j.actions&&j.actions.length);$('#agPreview').onclick=()=>{JOBSTATE=[j,...JOBSTATE.filter(x=>x.id!==j.id)];openJob(j.id)};
-  $('#agTranscript').innerHTML=(j.transcript||[]).map(t=>t.result!==undefined?`<div style="margin:2px 0 8px 14px;font-size:12px" class="dim">↳ ${escapeHtml(t.result).slice(0,500)}</div>`:
-    `<div style="margin-top:8px"><div class="dim" style="font-size:12px">${t.t}</div><div>🧠 ${escapeHtml(t.thought||'')}</div><div class="mono" style="font-size:12px;color:var(--acc)">→ ${t.tool} ${escapeHtml(JSON.stringify(t.args||{})).slice(0,300)}</div></div>`).join('')+
-    (j.error?`<div class="bad" style="margin-top:8px">✗ ${escapeHtml(j.error)}</div>`:'')+(j.status==='done'?`<div class="ok" style="margin-top:8px">✅ 完成 —— 实花 ¥${j.cost.spent.toFixed(2)}</div>`:'');
+  AGRUNS=(await api('/api/jobs')).filter(j=>j.agent);$('#agCount').textContent=AGRUNS.length;
+  $('#agRuns').innerHTML=AGRUNS.length?AGRUNS.map(j=>`<div class="gcard ${j.id===agSel?'sel':''}" data-id="${j.id}" style="margin-top:8px"><div class="row between"><b>${j.id}</b><span class="st ${j.status}">${j.status}${j.mode==='demo'?' · 试运行':''}</span></div><div class="dim small">${esc((j.goal||'').slice(0,60))}</div><div class="small">¥${j.cost.spent.toFixed(2)}<span class="dim">/预算 ${(j.budget||0).toFixed(2)}</span> · ${(j.transcript||[]).filter(t=>t.tool&&!t.result).length} 步 · ${esc(j.brain)}</div></div>`).join(''):'<span class="dim">还没有</span>';
+  $$('#agRuns .gcard').forEach(el=>el.onclick=()=>{agSel=el.dataset.id;pollAgent()});
+  if(!agSel)return;const j=AGRUNS.find(x=>x.id===agSel);if(!j)return;
+  $('#agId').textContent=j.id;$('#agPreview').hidden=!(j.status==='done'&&j.actions&&j.actions.length);$('#agPreview').onclick=()=>openJob(j.id);
+  $('#agTranscript').innerHTML=(j.transcript||[]).map(t=>t.result!==undefined?`<div class="dim small" style="margin:2px 0 8px 14px">↳ ${esc(t.result).slice(0,500)}</div>`:`<div style="margin-top:8px"><div class="dim small">${t.t}</div><div>🧠 ${esc(t.thought||'')}</div><div class="mono small" style="color:var(--acc)">→ ${t.tool} ${esc(JSON.stringify(t.args||{})).slice(0,300)}</div></div>`).join('')+(j.error?`<div class="bad" style="margin-top:8px">✗ ${esc(j.error)}</div>`:'')+(j.status==='done'?`<div class="ok" style="margin-top:8px">✅ 完成 —— ¥${j.cost.spent.toFixed(2)}</div>`:'');
   $('#agTranscript').scrollTop=1e9;
   const p=j.pending;$('#agPendingCard').hidden=!(j.status==='waiting'&&p);
-  if(p){$('#agPending').innerHTML=`<b>${escapeHtml(p.msg)}</b>`;const q=p.type==='question';$('#agApprove').hidden=$('#agReject').hidden=q;$('#agReply').hidden=!q;
-    const send=(approve)=>async()=>{await api(`/api/agent/${j.id}/answer`,{method:'POST',body:{approve,text:$('#agAnswer').value}});$('#agAnswer').value='';pollAgent()};
-    $('#agApprove').onclick=send(true);$('#agReject').onclick=send(false);$('#agReply').onclick=send(null)}
-  if(j.status==='running'||j.status==='queued')setTimeout(pollAgent,2000);
-}
-function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
-const _ld=loadDoctor;
-loadDoctor().then(()=>{pollJobs();$('#agBrain').value=(D.creds.llm&&D.creds.llm.model)||'';$('#agEyes').value=(D.creds.llm&&D.creds.llm.vision_model)||'';pollAgent()});
+  if(p){$('#agPending').innerHTML=`<b>${esc(p.msg)}</b>`;const q=p.type==='question';$('#agApprove').hidden=$('#agReject').hidden=q;$('#agReply').hidden=!q;const send=a=>async()=>{await api(`/api/agent/${j.id}/answer`,{method:'POST',body:{approve:a,text:$('#agAnswer').value}});$('#agAnswer').value='';pollAgent()};$('#agApprove').onclick=send(true);$('#agReject').onclick=send(false);$('#agReply').onclick=send(null)}
+  if(j.status==='running'||j.status==='queued')setTimeout(pollAgent,2000)}
+
+loadDoctor().then(()=>{gate();applyMode();pollJobs();pollAgent()});
 </script>
 </body>
 </html>

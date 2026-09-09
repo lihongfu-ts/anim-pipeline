@@ -78,7 +78,7 @@ def doctor():
         'presets': pipeline.PRESETS,
         'custom_defaults': pipeline.CUSTOM_DEFAULTS,
         'providers': pipeline.VIDEO_PROVIDERS,
-        'prices': {'portrait': pipeline.PRICE_PORTRAIT,
+        'prices': {'portrait': pipeline.portrait_price(),
                    'video': {f'{p}|{r}|{d}': v for (p, r, d), v in pipeline.PRICE_VIDEO.items()},
                    'per_sec': {f'{p}|{r}': v for (p, r), v in pipeline.PER_SEC.items()},
                    'zhipu': pipeline.ZHIPU_PRICE},

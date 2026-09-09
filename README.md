@@ -196,6 +196,8 @@ python web/server.py                     # → http://127.0.0.1:8765
 - dsh 插件：插件设置里填，插件以 `DASHSCOPE_API_KEY` 等环境变量注给 Python（[dsh-plugin/README.md](dsh-plugin/README.md)）
 
 只有万相是**必需**的（出片定稿唯一能钉首尾帧）；已有立绘就不需要中转站。
+**出立绘的中转站**：<https://jizhiapi.site/register?aff=9GKRGQJNL4R4>（邀请码 `9GKRGQJNL4R4`），支持 `gpt-image-2.5`，**¥0.05/张**；baseUrl `https://jizhiapi.site/v1`，价格字段填 0.05。
+**大模型**：DeepSeek `deepseek-v4-pro`（实测能看图挑帧），写提示词 + 看联络表 + agent 大脑一把抓。
 **拿万相 key**：<https://platform.qianwenai.com/try-ai?scene=video> → 「万相 3.0 - 视频生成」→ 右上角「获取 API Key」→ `sk-ws-` 开头的 key，
 baseUrl 用公共域名 `https://dashscope.aliyuncs.com/api/v1`（实测可用；普通 `sk-` key 才需要业务空间专属域名）。
 
