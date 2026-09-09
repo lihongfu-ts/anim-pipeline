@@ -134,6 +134,68 @@ LLM_SYSTEM = """你是 2D 游戏角色动画的提示词工程师。用户给一
 只输出 JSON，不要解释。"""
 
 
+VLM_SYSTEM = """你是 2D 游戏动作动画的挑帧师。你会看到一张联络表：从一段视频等距抽出的格子，每格烧着帧号（f001 这种，1 起）。
+输出 JSON：{"frames":[帧号(整数)...], "collapse":false, "thin_weapon":[帧号...], "notes":"一句话"}
+规则（全部来自实测）：
+1. frames 选恰好 N 个、递增、只能从图里出现的帧号里选。要表达完整动作：蓄力 → 发力 → 命中（停住）→ 收招；
+   重心放在命中那一段，别选成"举刀×3 + 命中×1"。命中帧的武器/拳头必须指向角色面朝的方向；只有蓄力帧可以朝后。
+2. collapse=true 当且仅当：发型/面部/服装/身材比例/武器形状明显变了、多出第二把武器、整个人发白发光、人物出画或腿脚被裁掉。
+3. thin_weapon：武器变成一条细线（刃口转向镜头）的帧号——这些帧不能进 frames。
+4. 只输出 JSON，不要解释。"""
+
+
+def vlm_pick(png_path, motion: str, n: int, total: int, model: str, log, timeout: int = 150):
+    """⚑ 让带视觉的模型看联络表：⚑ 挑帧（→ --at=）＋ 判崩坏 ＋ 找"刀变细线"。
+    ⚑ 文档 §6 ④ 说"技能动画必须手点"——这一步就是把"手点"交给 VLM；⚠ 任何失败都退回自动挑帧。"""
+    import base64
+    import urllib.request
+    import urllib.error
+    c = _creds.get('llm')
+    if not c:
+        log('  ⚠ 没配 llm，跳过 VLM 挑帧')
+        return None
+    base = (c['base'] or '').rstrip('/')
+    model = model or c.get('vision_model') or c.get('model') or LLM_DEFAULT_MODEL
+    b64 = base64.b64encode(Path(png_path).read_bytes()).decode()
+    body = {'model': model, 'temperature': 0.2, 'messages': [
+        {'role': 'system', 'content': VLM_SYSTEM},
+        {'role': 'user', 'content': [
+            {'type': 'text', 'text': f'动作：{motion}\nN = {n}。视频共 {total} 帧。'},
+            {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,' + b64}}]}]}
+    req = urllib.request.Request(f'{base}/chat/completions', data=json.dumps(body).encode(),
+                                 headers={'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c['key']})
+    log(f'  → {model} @ {base}  图 {len(b64) // 1024} KB  超时 {timeout}s')   # ⚑ 卡住时至少知道在等谁
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            txt = json.loads(r.read().decode())['choices'][0]['message']['content']
+        log(f'  ← {time.time() - t0:.1f}s')
+    except urllib.error.HTTPError as e:
+        log(f'  ⚠ VLM HTTP {e.code}：{e.read().decode(errors="replace")[:300]} ⇒ 退回自动挑帧')
+        return None
+    except Exception as e:
+        log(f'  ⚠ VLM 调用失败：{e} ⇒ 退回自动挑帧')
+        return None
+    m = re.search(r'\{.*\}', txt, re.S)
+    try:
+        d = json.loads(m.group(0)) if m else None
+    except Exception:
+        d = None
+    if not isinstance(d, dict):
+        log(f'  ⚠ VLM 没给合法 JSON ⇒ 退回自动挑帧\n  {txt[:300]}')
+        return None
+
+    def ints(v):
+        out = []
+        for x in (v or []):
+            s = str(x).strip().lstrip('fF')
+            if s.isdigit() and 1 <= int(s) <= max(total, 1):
+                out.append(int(s))
+        return sorted(set(out))
+    return {'model': model, 'frames': ints(d.get('frames')), 'collapse': bool(d.get('collapse')),
+            'thin_weapon': ints(d.get('thin_weapon')), 'notes': str(d.get('notes', ''))[:200], 'raw': txt[:600]}
+
+
 def llm_prompts(sentence: str, style: str, actions, model: str, log):
     """⚑ 走智谱 OpenAI 兼容接口。⚠ 任何失败都退回模板 —— ⛔ 提示词这步不能成为花钱前的阻塞点。"""
     import urllib.request
@@ -389,15 +451,37 @@ class Job:
             self.step(f'{a}.synth', f'{who}：合成测试视频（⛔ 不调 API）',
                       [HERE / 'synth.py', 'walk' if A.get('pick') == 'loop' else 'attack', mp4])
         art['video'] = mp4
-        self.step(f'{a}.contact', f'{who}：联络表', [TOOLS / '_contact.py', mp4], must=False)
+        ctxt = self.step(f'{a}.contact', f'{who}：联络表', [TOOLS / '_contact.py', mp4], must=False)
         art['contact'] = f'work/anim/{a}_联络表.png'
+        mt = re.search(r'共 (\d+) 帧', ctxt or '')
+        total = int(mt.group(1)) if mt else 0
         cell = self._opt(a, 'cell')
         n_frames = int(self._opt(a, 'frames'))
+        # ⚑⚑ 可选：VLM 看联络表 —— ⚑ 挑帧变 --at=、⚑ 崩了就停（⛔ 别再往下花钱）。⚑ 只对一次性动作（走路靠 loop）
+        at_arg = None
+        if A.get('pick') != 'loop' and self.state['options'].get('vlm_pick'):
+            vc = f'work/anim/{a}_vlm联络表.png'
+            self.step(f'{a}.vcontact', f'{who}：密联络表（给 VLM 看，24 格）',
+                      [TOOLS / '_contact.py', mp4, '--n=24', '--cols=6', f'--out={vc}'], must=False)
+            self.log(f'\n───── {who}：VLM 挑帧 / 判崩坏')
+            res = vlm_pick(self.dir / vc, A.get('motion') or who, n_frames, total,
+                           self.state['options'].get('vlm_model'), self.log)
+            if res:
+                art['vlm'] = res
+                self.log(f'  ⚑ {res["model"]}：frames={res["frames"]} collapse={res["collapse"]} '
+                         f'thin={res["thin_weapon"]} —— {res["notes"]}')
+                if res['collapse'] and self.state['mode'] == 'generate' and self.state['options'].get('stop_on_collapse', True):
+                    raise RuntimeError(f'{who}：VLM 判定角色崩坏（{res["notes"]}）⇒ 停止后续动作，别继续花钱。核实 {vc}')
+                if len(res['frames']) == n_frames:
+                    at_arg = '--at=' + ','.join(str(v) for v in res['frames'])
+                else:
+                    self.log(f'  ⚠ VLM 给了 {len(res["frames"])} 帧、要 {n_frames} 帧 ⇒ 退回 --pick={A.get("pick")}')
+            self.save()
         # ⚑⚑ 一律出**单行**图集（--cols=帧数）：⚑ `_anim_check` 按单行切格（⚠ 4×2 会把第一行脚底算到整图高上，
         #   ⛔ 报"差 256px"），⚑ 引擎接单行也最省事。⚑ 多行支持只留给「提取」页上传的图集。
         self.step(f'{a}.sheet', f'{who}：视频 → 图集',
                   [TOOLS / 'vid2anim.py', mp4, f'--tag={a}', f'--frames={n_frames}', f'--cols={n_frames}',
-                   f'--pick={self._opt(a, "pick")}', f'--cell={cell}'],
+                   f'--pick={self._opt(a, "pick")}', f'--cell={cell}'] + ([at_arg] if at_arg else []),
                   parse=parse_vid2anim)
         r = self.state['steps'][-1].get('result') or {}
         art.update(sheet=f'out/anim/{a}.png', gif=f'work/anim/{a}_看.gif',
@@ -578,6 +662,20 @@ def slice_sheet_zip(sheet: Path, cell, dst: Path):
 
 
 # ─────────────────────────────── 任务表
+def sweep_stale():
+    """⚑ 服务重启 ⇒ 线程全没了 ⇒ ⚑ 把还写着 running/queued 的任务标成失败，⛔ 别让它永远转圈。"""
+    n = 0
+    for st in list_jobs():
+        if st.get('status') in ('running', 'queued'):
+            st['status'], st['error'] = 'failed', '服务重启，任务被中断（可重新提交）'
+            for s in st.get('steps', []):
+                if s.get('status') == 'running':
+                    s['status'] = 'failed'
+            (JOBS / st['id'] / 'state.json').write_text(json.dumps(st, ensure_ascii=False, indent=2), encoding='utf-8')
+            n += 1
+    return n
+
+
 def list_jobs():
     out = []
     if JOBS.exists():

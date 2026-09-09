@@ -55,6 +55,7 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
   <button data-tab="prev">预览</button>
   <button data-tab="ext">提取</button>
   <button data-tab="cred">凭据</button>
+  <button data-tab="agent">Agent（DeepSeek 大脑）</button>
 </nav>
 <main>
 
@@ -70,7 +71,11 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     <input type="text" id="style" value="Q 版 3.5 头身，厚涂风格，颜色饱和，轮廓清晰。">
     <div class="row" style="margin-top:8px">
       <label style="margin:0"><input type="checkbox" id="llm"> 让 LLM 先把一句话扩成四段提示词</label>
-      <input type="text" id="llmModel" value="glm-5.3-flash" style="width:150px" title="走智谱 chat/completions，失败自动退回模板">
+      <input type="text" id="llmModel" value="glm-5.3-flash" style="width:150px" title="走 llm 凭据的 chat/completions，失败自动退回模板">
+    </div>
+    <div class="row" style="margin-top:4px">
+      <label style="margin:0"><input type="checkbox" id="vlm"> 让 VLM 看联络表挑帧 + 判崩坏（一次性动作；崩了就停，不再花钱）</label>
+      <input type="text" id="vlmModel" style="width:150px" title="要带视觉的模型；凭据页「检查」会告诉你支不支持看图">
     </div>
     <label>或者上传自己的立绘（跳过出图那 ¥0.15）</label>
     <input type="file" id="portraitFile" accept="image/png,image/jpeg">
@@ -184,7 +189,8 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     <div class="note" id="cHint"></div>
     <label>apiKey</label><input type="password" id="cKey" autocomplete="off">
     <label id="cWsWrap">workspaceId（万相要）</label><input type="text" id="cWs">
-    <label id="cModelWrap">model（llm 用，例：glm-5.3-flash / deepseek-chat）</label><input type="text" id="cModel">
+    <label id="cModelWrap">model（聊天 / 提示词扩写，例：deepseek-v4-flash · glm-5.3-flash）</label><input type="text" id="cModel">
+    <label id="cVModelWrap">vision model（看图 / VLM 挑帧，例：deepseek-v4-pro；实测 v4-flash 不认图、vision-exp 不稳定）</label><input type="text" id="cVModel">
     <div class="row" style="margin-top:10px"><button class="btn" id="cSave">保存</button><span class="dim" id="cMsg"></span></div>
     <div class="note">写到本机 <code id="cFile"></code>，不进仓库、不回显完整 key。服务只监听 127.0.0.1。</div>
   </div>
@@ -195,6 +201,43 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     <table id="credTable"></table>
     <div id="probeOut" class="note"></div>
   </div>
+</div>
+</div>
+</section>
+<!-- ───────────────────────────── Agent -->
+<section class="tab" id="tab-agent">
+<div class="grid">
+<div>
+  <div class="card">
+    <h3>让大模型自己跑完这条链</h3>
+    <label>目标</label>
+    <textarea id="agGoal">给这个角色做一段走路和一段攻击动画，每个动作都要过验收。</textarea>
+    <div class="row" style="margin-top:6px">
+      <label style="margin:0">脑 <input type="text" id="agBrain" style="width:170px"></label>
+      <label style="margin:0">眼 <input type="text" id="agEyes" style="width:170px"></label>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <label style="margin:0"><input type="radio" name="agMode" value="demo" checked> demo（不花钱）</label>
+      <label style="margin:0"><input type="radio" name="agMode" value="generate"> 真实生成</label>
+      <label style="margin:0">预算 ¥<input type="number" id="agBudget" value="3" step="0.5" min="0"></label>
+      <label style="margin:0"><input type="checkbox" id="agAuto"> 预算内自动批准</label>
+    </div>
+    <label>已有立绘（可选，跳过出图）</label><input type="file" id="agPortrait" accept="image/png,image/jpeg">
+    <div class="row" style="margin-top:10px"><label style="margin:0" id="agConfirmWrap" hidden><input type="checkbox" id="agConfirm"> 我确认要花钱</label>
+      <button class="btn" id="agGo">开始</button><span class="dim" id="agMsg"></span></div>
+    <div class="note">agent 只做决策：写运动段、选 provider、读验收数字、决定重出还是换路线。机械步骤全是 tools/ 里的脚本。
+      收费步骤会停下来问你（除非勾了自动批准）；每个动作最多出 2 发；崩坏由视觉模型判定后按「换 provider / 改禁止句 / 问人」路由。</div>
+  </div>
+  <div class="card"><h3>运行 <span class="pill" id="agCount"></span></h3><div id="agRuns" class="dim">还没有</div></div>
+</div>
+<div>
+  <div class="card" id="agPendingCard" hidden style="border-color:var(--warn)">
+    <h3>等你决定</h3><div id="agPending"></div>
+    <div class="row" style="margin-top:8px"><input type="text" id="agAnswer" placeholder="回答 / 拒绝理由（可空）" style="width:360px">
+      <button class="btn" id="agApprove">批准</button><button class="btn ghost" id="agReject">拒绝</button><button class="btn ghost" id="agReply" hidden>回答</button></div>
+  </div>
+  <div class="card"><h3>过程 <span class="pill" id="agId"></span> <button class="btn sm ghost" id="agPreview" hidden>去预览</button></h3>
+    <div id="agTranscript" class="dim">选一个运行</div></div>
 </div>
 </div>
 </section>
@@ -217,7 +260,7 @@ async function loadDoctor(){
   for(const p of ['relay','wan','glm','ark','minimax','llm']) chip(p,!!D.creds[p],true);
   $('#chips').innerHTML=c.join('');
   $('#credsfile').textContent=D.creds_file; $('#cFile').textContent=D.creds_file;
-  $('#llmModel').value=(D.creds.llm&&D.creds.llm.model)||D.llm_default;
+  $('#llmModel').value=(D.creds.llm&&D.creds.llm.model)||D.llm_default;$('#vlmModel').value=(D.creds.llm&&D.creds.llm.vision_model)||$('#llmModel').value;
   buildActs(); renderCredTable(); estimate();
 }
 
@@ -271,7 +314,8 @@ function readOpts(){
   $$('.act').forEach(el=>{o[el.dataset.a]={provider:el.querySelector('.prov').value,model:el.querySelector('.model').value.trim(),
     res:el.querySelector('.res').value,dur:+el.querySelector('.dur').value,frames:+el.querySelector('.frames').value,
     pick:el.querySelector('.pick').value,cell:el.querySelector('.cell').value.trim(),extra:el.querySelector('.extra').value.trim()}});
-  o.prompt_llm=$('#llm').checked;o.prompt_llm_model=$('#llmModel').value.trim();return o;
+  o.prompt_llm=$('#llm').checked;o.prompt_llm_model=$('#llmModel').value.trim();
+  o.vlm_pick=$('#vlm').checked;o.vlm_model=$('#vlmModel').value.trim();o.stop_on_collapse=true;return o;
 }
 function readCustom(){          // ⚑ 预设和自定义都以 custom_actions 形式送后端（⚑ 带 label / motion / checks）
   const c={};
@@ -342,6 +386,7 @@ function loadAction(j,a){const art=j.artifacts[a];if(!art||!art.sheet)return;P.a
     ${art.anim_check?`<tr><th>图集自检</th><td class="${art.anim_check.pass?'ok':'bad'}">${art.anim_check.pass?'通过':'不通过：'+art.anim_check.issues.join('；')}</td></tr>`:''}
     ${'blade_ok' in art?`<tr><th>刀变细线</th><td class="${art.blade_ok?'ok':'warn'}">${art.blade_ok?'未发现':'有帧疑似（看日志）'}</td></tr>`:''}
     ${art.foot_trim?`<tr><th>footTrim</th><td class="mono">${art.foot_trim.join(', ')}</td></tr>`:''}
+    ${art.vlm?`<tr><th>VLM</th><td class="${art.vlm.collapse?'bad':''}">${art.vlm.model} 挑 f${art.vlm.frames.join(', f')}${art.vlm.collapse?' · <b>判定崩坏</b>':''}${art.vlm.thin_weapon.length?' · 细线帧 '+art.vlm.thin_weapon.join(','):''}<br><span class="dim">${art.vlm.notes}</span></td></tr>`:''}
   </table><div class="note">循环缝 >1.5 循环会跳一下；亮度漂突然变大多半是崩了不是动得好。合格区间要配基准素材（README ①）。</div>`;
   $('#thumbs').innerHTML=[['contact','联络表'],['gif','GIF'],['video','源视频']].filter(([k])=>art[k]).map(([k,n])=>k==='video'?`<video src="/api/jobs/${j.id}/file/${art[k]}" controls style="max-height:120px"></video>`:`<a href="/api/jobs/${j.id}/file/${art[k]}" target="_blank"><img src="/api/jobs/${j.id}/file/${art[k]}" title="${n}"></a>`).join('');
   $('#dlSheet').onclick=()=>open(P.src);$('#dlGif').onclick=()=>art.gif&&open(`/api/jobs/${j.id}/file/${art.gif}`);$('#dlZip').onclick=()=>open(`/api/jobs/${j.id}/export`);}
@@ -376,17 +421,44 @@ const HINT={wan:'必须是「独立业务空间」专属域名：https://ws-xxxx
   relay:'OpenAI 兼容中转站，形如 https://xxx/v1。保存后点「检查」能列出它提供的图像模型。',glm:'默认 https://open.bigmodel.cn/api/paas/v4。「检查」会用 1 token 探一下上面填的 LLM 模型是否可用。',
   ark:'默认 https://ark.cn-beijing.volces.com/api/v3。「检查」列出 seedance 系列可用模型。',minimax:'默认 https://api.minimaxi.com',
   llm:'任意 OpenAI 兼容端点（智谱 https://open.bigmodel.cn/api/paas/v4 · DeepSeek https://api.deepseek.com · 中转站 https://xxx/v1）。只用于把一句话扩成四段提示词，和出片用的 glm 分开配。「检查」会用 1 token 探 model 能不能聊。'};
-$('#cProv').onchange=()=>{const p=$('#cProv').value;$('#cHint').textContent=HINT[p];$('#cWsWrap').style.display=$('#cWs').style.display=p==='wan'?'':'none';$('#cModelWrap').style.display=$('#cModel').style.display=p==='llm'?'':'none'};$('#cProv').onchange();
-$('#cSave').onclick=async()=>{try{await api('/api/creds',{method:'POST',body:{provider:$('#cProv').value,baseUrl:$('#cBase').value,apiKey:$('#cKey').value,workspaceId:$('#cWs').value,model:$('#cModel').value}});
+$('#cProv').onchange=()=>{const p=$('#cProv').value;$('#cHint').textContent=HINT[p];$('#cWsWrap').style.display=$('#cWs').style.display=p==='wan'?'':'none';$('#cModelWrap').style.display=$('#cModel').style.display=$('#cVModelWrap').style.display=$('#cVModel').style.display=p==='llm'?'':'none'};$('#cProv').onchange();
+$('#cSave').onclick=async()=>{try{await api('/api/creds',{method:'POST',body:{provider:$('#cProv').value,baseUrl:$('#cBase').value,apiKey:$('#cKey').value,workspaceId:$('#cWs').value,model:$('#cModel').value,vision_model:$('#cVModel').value}});
   $('#cKey').value='';$('#cMsg').textContent='已保存';$('#cMsg').className='ok';await loadDoctor()}catch(e){$('#cMsg').textContent=e.message;$('#cMsg').className='bad'}};
 function renderCredTable(){$('#credTable').innerHTML='<tr><th>provider</th><th>状态</th><th>来源</th><th>key</th><th></th></tr>'+['wan','relay','glm','ark','minimax','llm'].map(p=>{const c=D.creds[p];
-  return `<tr><td><b>${p}</b>${c&&c.model?`<span class="pill">${c.model}</span>`:''}</td><td class="${c?'ok':'dim'}">${c?'已配置':'未配置'}</td><td class="dim">${c?c.from:''}</td><td class="mono dim">${c?c.key:''}</td>
+  return `<tr><td><b>${p}</b>${c&&c.model?`<span class="pill">${c.model}</span>`:''}${c&&c.vision_model?`<span class="pill">👁 ${c.vision_model}</span>`:''}</td><td class="${c?'ok':'dim'}">${c?'已配置':'未配置'}</td><td class="dim">${c?c.from:''}</td><td class="mono dim">${c?c.key:''}</td>
   <td><button class="btn sm ghost pr" data-p="${p}" ${c?'':'disabled'}>检查</button> ${c&&c.from==='user'?`<button class="btn sm ghost rm" data-p="${p}">删</button>`:''}</td></tr>`}).join('');
-  $$('#credTable .pr').forEach(b=>b.onclick=async()=>{$('#probeOut').textContent='检查中…';try{const r=await api(`/api/creds/${b.dataset.p}/probe`,{method:'POST',body:{model:b.dataset.p==='llm'?($('#cModel').value.trim()||$('#llmModel').value):$('#llmModel').value}});
-    $('#probeOut').innerHTML=`<div class="${r.ok?'ok':'bad'}">${b.dataset.p}: ${r.msg}</div>${(r.notes||[]).map(n=>`<div class="warn">${n}</div>`).join('')}${r.detail?`<pre class="mono dim" style="white-space:pre-wrap">${typeof r.detail==='string'?r.detail:JSON.stringify(r.detail)}</pre>`:''}${r.models?.length?`<div>模型：<span class="mono">${r.models.join(' · ')}</span></div>`:''}`}catch(e){$('#probeOut').innerHTML=`<span class="bad">${e.message}</span>`}});
+  $$('#credTable .pr').forEach(b=>b.onclick=async()=>{$('#probeOut').textContent='检查中…';try{const r=await api(`/api/creds/${b.dataset.p}/probe`,{method:'POST',body:{model:b.dataset.p==='llm'?($('#cModel').value.trim()||$('#llmModel').value):$('#llmModel').value,vision_model:$('#cVModel').value.trim()||$('#vlmModel').value}});
+    $('#probeOut').innerHTML=`<div class="${r.ok?'ok':'bad'}">${b.dataset.p}: ${r.msg}</div>${r.vision===true?'<div class="ok">✅ 支持看图 —— 可以勾「VLM 挑帧 + 判崩坏」</div>':(r.vision===false?`<div class="warn">⛔ 这个模型不认图（VLM 挑帧那步会退回自动挑）<pre class="mono dim" style="white-space:pre-wrap">${typeof r.vision_detail==='string'?r.vision_detail:JSON.stringify(r.vision_detail)}</pre></div>`:'')}${(r.notes||[]).map(n=>`<div class="warn">${n}</div>`).join('')}${r.detail?`<pre class="mono dim" style="white-space:pre-wrap">${typeof r.detail==='string'?r.detail:JSON.stringify(r.detail)}</pre>`:''}${r.models?.length?`<div>模型：<span class="mono">${r.models.join(' · ')}</span></div>`:''}`}catch(e){$('#probeOut').innerHTML=`<span class="bad">${e.message}</span>`}});
   $$('#credTable .rm').forEach(b=>b.onclick=async()=>{if(confirm('删除 '+b.dataset.p+' 的 key？')){await api('/api/creds/'+b.dataset.p,{method:'DELETE'});loadDoctor()}})}
 
-loadDoctor().then(pollJobs);
+// ───────── Agent
+let agSel=null, agPortraitPath=null;
+$$('input[name=agMode]').forEach(r=>r.onchange=()=>{$('#agConfirmWrap').hidden=$('input[name=agMode]:checked').value!=='generate'});
+$('#agPortrait').onchange=async e=>{const f=e.target.files[0];if(!f){agPortraitPath=null;return}const fd=new FormData();fd.append('file',f);agPortraitPath=(await api('/api/upload/portrait',{method:'POST',body:fd})).path};
+$('#agGo').onclick=async()=>{$('#agMsg').textContent='';try{
+  const st=await api('/api/agent',{method:'POST',body:{goal:$('#agGoal').value,mode:$('input[name=agMode]:checked').value,budget:+$('#agBudget').value,
+    auto_approve:$('#agAuto').checked,brain:$('#agBrain').value.trim()||null,eyes:$('#agEyes').value.trim()||null,confirm:$('#agConfirm').checked,portrait_upload:agPortraitPath}});
+  agSel=st.id;pollAgent()}catch(e){$('#agMsg').textContent=e.message;$('#agMsg').className='bad'}};
+async function pollAgent(){
+  const runs=(await api('/api/jobs')).filter(j=>j.agent);$('#agCount').textContent=runs.length;
+  $('#agRuns').innerHTML=runs.length?runs.map(j=>`<div class="job ${j.id===agSel?'sel':''}" data-id="${j.id}"><div class="row" style="justify-content:space-between"><b>${j.id}</b><span class="st ${j.status==='waiting'?'running':j.status}">${j.status}${j.mode==='demo'?' · demo':''}</span></div>
+    <div class="dim" style="font-size:12px">${(j.goal||'').slice(0,60)}</div><div style="font-size:12px">实花 <span class="cost">¥${j.cost.spent.toFixed(2)}</span><span class="dim">/预算 ${(j.budget||0).toFixed(2)}</span> · ${(j.transcript||[]).filter(t=>t.tool&&!t.result).length} 步 · 脑 ${j.brain}</div></div>`).join(''):'<span class="dim">还没有</span>';
+  $$('#agRuns .job').forEach(el=>el.onclick=()=>{agSel=el.dataset.id;pollAgent()});
+  if(!agSel)return;const j=runs.find(x=>x.id===agSel);if(!j)return;
+  $('#agId').textContent=j.id;$('#agPreview').hidden=!(j.status==='done'&&j.actions&&j.actions.length);$('#agPreview').onclick=()=>{JOBSTATE=[j,...JOBSTATE.filter(x=>x.id!==j.id)];openJob(j.id)};
+  $('#agTranscript').innerHTML=(j.transcript||[]).map(t=>t.result!==undefined?`<div style="margin:2px 0 8px 14px;font-size:12px" class="dim">↳ ${escapeHtml(t.result).slice(0,500)}</div>`:
+    `<div style="margin-top:8px"><div class="dim" style="font-size:12px">${t.t}</div><div>🧠 ${escapeHtml(t.thought||'')}</div><div class="mono" style="font-size:12px;color:var(--acc)">→ ${t.tool} ${escapeHtml(JSON.stringify(t.args||{})).slice(0,300)}</div></div>`).join('')+
+    (j.error?`<div class="bad" style="margin-top:8px">✗ ${escapeHtml(j.error)}</div>`:'')+(j.status==='done'?`<div class="ok" style="margin-top:8px">✅ 完成 —— 实花 ¥${j.cost.spent.toFixed(2)}</div>`:'');
+  $('#agTranscript').scrollTop=1e9;
+  const p=j.pending;$('#agPendingCard').hidden=!(j.status==='waiting'&&p);
+  if(p){$('#agPending').innerHTML=`<b>${escapeHtml(p.msg)}</b>`;const q=p.type==='question';$('#agApprove').hidden=$('#agReject').hidden=q;$('#agReply').hidden=!q;
+    const send=(approve)=>async()=>{await api(`/api/agent/${j.id}/answer`,{method:'POST',body:{approve,text:$('#agAnswer').value}});$('#agAnswer').value='';pollAgent()};
+    $('#agApprove').onclick=send(true);$('#agReject').onclick=send(false);$('#agReply').onclick=send(null)}
+  if(j.status==='running'||j.status==='queued')setTimeout(pollAgent,2000);
+}
+function escapeHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+const _ld=loadDoctor;
+loadDoctor().then(()=>{pollJobs();$('#agBrain').value=(D.creds.llm&&D.creds.llm.model)||'';$('#agEyes').value=(D.creds.llm&&D.creds.llm.vision_model)||'';pollAgent()});
 </script>
 </body>
 </html>

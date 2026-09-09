@@ -31,12 +31,16 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'tools'))
 import pipeline  # noqa: E402
+import agent  # noqa: E402
 import _creds  # noqa: E402
 
 app = FastAPI(title='anim-pipeline')
 app.mount('/static', StaticFiles(directory=str(HERE / 'static')), name='static')
 UPLOADS = pipeline.JOBS / '_uploads'
 UPLOADS.mkdir(parents=True, exist_ok=True)
+_stale = pipeline.sweep_stale()
+if _stale:
+    print(f'⚠ 上次没跑完的任务 {_stale} 个，已标为失败')
 
 PROVIDERS = ['relay', 'wan', 'ark', 'glm', 'minimax', 'llm']
 DEFAULT_BASE = {
@@ -65,7 +69,8 @@ def doctor():
         'python': sys.version.split()[0],
         'ffmpeg': bool(shutil.which('ffmpeg')), 'ffprobe': bool(shutil.which('ffprobe')),
         'numpy': _has('numpy'), 'pillow': _has('PIL'),
-        'creds': {n: ({'from': c['_from'], 'base': c['base'], 'key': _mask(c['key']), 'model': c.get('model', '')}
+        'creds': {n: ({'from': c['_from'], 'base': c['base'], 'key': _mask(c['key']), 'model': c.get('model', ''),
+                       'vision_model': c.get('vision_model', '')}
                       if c else None) for n, c in cr.items()},
         'can': can,
         'caps': {k: v[2] for k, v in _creds.CAPS.items()},
@@ -103,6 +108,8 @@ def set_cred(body: dict):
         ent['workspaceId'] = body['workspaceId'].strip()
     if body.get('model'):
         ent['model'] = body['model'].strip()
+    if body.get('vision_model'):
+        ent['vision_model'] = body['vision_model'].strip()
     d.setdefault('providers', {})[name] = ent
     _creds.USER_CFG.parent.mkdir(parents=True, exist_ok=True) if hasattr(_creds.USER_CFG, 'parent') else \
         os.makedirs(os.path.dirname(_creds.USER_CFG), exist_ok=True)
@@ -153,10 +160,18 @@ def probe_cred(name: str, body: dict = None):
             models = [m.get('id') for m in resp.get('data', []) if isinstance(m, dict)]
         code, resp = _http('POST', f'{base}/chat/completions', key,
                            {'model': model, 'messages': [{'role': 'user', 'content': 'hi'}], 'max_tokens': 1})
-        if code == 200:
-            return {'ok': True, 'msg': f'认证通过，模型 {model} 可用' + (f'（端点共 {len(models)} 个模型）' if models else ''),
-                    'models': models[:60], 'notes': notes}
-        return {'ok': False, 'msg': f'HTTP {code}（模型 {model}）', 'detail': resp, 'models': models[:60], 'notes': notes}
+        if code != 200:
+            return {'ok': False, 'msg': f'HTTP {code}（模型 {model}）', 'detail': resp, 'models': models[:60], 'notes': notes}
+        # ⚑ 再探**看不看得懂图**：⚑ 发一张 1×1 PNG，200 ＝ 这个模型能进 VLM 挑帧那一步
+        tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+        vmodel = (body or {}).get('vision_model') or c.get('vision_model') or model
+        vcode, vresp = _http('POST', f'{base}/chat/completions', key,
+                             {'model': vmodel, 'max_tokens': 5, 'messages': [{'role': 'user', 'content': [
+                                 {'type': 'text', 'text': '这张图是什么颜色？'},
+                                 {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,' + tiny}}]}]})
+        return {'ok': True, 'msg': f'认证通过，模型 {model} 可用' + (f'（端点共 {len(models)} 个模型）' if models else ''),
+                'vision': vcode == 200, 'vision_model': vmodel, 'vision_detail': None if vcode == 200 else vresp,
+                'models': models[:60], 'notes': notes}
     if name == 'wan':
         if 'ws-' not in base:
             notes.append('⚠ baseUrl 不像「独立业务空间」专属域名（应形如 https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1）；公共域名恒 401')
@@ -297,6 +312,28 @@ def job_delete(job_id: str):
         raise HTTPException(400)
     shutil.rmtree(d, ignore_errors=True)
     return {'ok': True}
+
+
+# ─────────────────────────────── agent（DeepSeek 当大脑）
+@app.post('/api/agent')
+def agent_start(body: dict):
+    if not (body.get('goal') or '').strip():
+        raise HTTPException(400, '目标是空的')
+    if not _creds.get('llm'):
+        raise HTTPException(400, '没配 llm 凭据（DeepSeek 等）—— 到「凭据」页配')
+    if body.get('mode') == 'generate' and not body.get('confirm'):
+        raise HTTPException(400, '真实生成会花钱，需要勾选确认')
+    return agent.start({'goal': body['goal'], 'mode': body.get('mode', 'demo'), 'budget': body.get('budget', 3.0),
+                        'auto_approve': body.get('auto_approve', False), 'brain': body.get('brain'), 'eyes': body.get('eyes'),
+                        'portrait_upload': body.get('portrait_upload')})
+
+
+@app.post('/api/agent/{run_id}/answer')
+def agent_answer(run_id: str, body: dict):
+    st = agent.answer(run_id, body.get('approve'), body.get('text', ''))
+    if st is None:
+        raise HTTPException(404)
+    return st
 
 
 # ─────────────────────────────── 上传：立绘 / 图集提取

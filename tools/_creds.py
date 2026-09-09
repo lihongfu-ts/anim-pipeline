@@ -125,12 +125,13 @@ def get(name):
     if k:
         return {'base': (env.get(f'{env_prefix}_BASE_URL') or '').rstrip('/'), 'key': k,
                 'workspace': env.get(f'{env_prefix}_WORKSPACE_ID', ''),
-                'model': env.get(f'{env_prefix}_MODEL', ''), '_from': 'env'}
+                'model': env.get(f'{env_prefix}_MODEL', ''),
+                'vision_model': env.get(f'{env_prefix}_VISION_MODEL', ''), '_from': 'env'}
     # ② 用户目录
     d = user.get(name) or (user.get(cfg_key) if cfg_key else None)
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
-                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), '_from': 'user'}
+                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), 'vision_model': d.get('vision_model', ''), '_from': 'user'}
     # ③ 项目（⚑ 向后兼容）
     if name == 'relay':
         e = proj.get('_dotenv', {})
@@ -141,7 +142,7 @@ def get(name):
     d = proj.get(cfg_key) if cfg_key else None
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
-                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''),
+                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), 'vision_model': d.get('vision_model', ''),
                 '_from': 'project/config.json'}
     return None
 
