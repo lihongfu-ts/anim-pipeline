@@ -31,16 +31,7 @@
 
 - 会 git：`git clone https://github.com/lihongfu-ts/anim-pipeline`
 - 不会：打开 <https://github.com/lihongfu-ts/anim-pipeline> → 绿色「Code」→「Download ZIP」→ 解压到任意目录
-- **GitHub 太慢 / 下不动**（国内常见）：浏览器里贴下面任意一个直接下 ZIP，一个不通换下一个（这类加速站会变，2026-09 测过可用）
-
-  ```
-  https://ghfast.top/https://github.com/lihongfu-ts/anim-pipeline/archive/refs/heads/main.zip
-  https://gh-proxy.com/https://github.com/lihongfu-ts/anim-pipeline/archive/refs/heads/main.zip
-  https://ghproxy.net/https://github.com/lihongfu-ts/anim-pipeline/archive/refs/heads/main.zip
-  ```
-
-  clone 也能走加速：`git clone https://ghfast.top/https://github.com/lihongfu-ts/anim-pipeline`
-  安装过程里另外两处联网都有国内兜底：pip 不通自动换清华镜像；ffmpeg 走 winget 或 gyan.dev（国内直连可达）。
+- 安装过程里另外两处联网都有国内兜底：pip 不通自动换清华镜像；ffmpeg 走 winget 或 gyan.dev（国内直连可达）。
 
 **② 装**：双击 `安装.bat`。没 Python 会先用 winget 装 → pip 装依赖（官方源不通自动换清华镜像）→ 装 ffmpeg（有 winget 用 winget，否则下 gyan.dev 的包放进 `tools/bin`）。全程不用你操作。
 
