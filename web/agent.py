@@ -203,14 +203,16 @@ class Run:
             if not c:
                 return {'error': '没配 relay（中转站）出不了立绘；让用户上传一张或先配 key'}
             env = {'OPENAI_API_KEY': c['key'], 'OPENAI_BASE_URL': c['base']}
+            im = args.get('model') or c.get('model')          # ⚑ 图像模型名各家中转站不同，⚑ 从 relay 凭据取
             if name == 'gen_portrait':
                 item = {'id': 1, 'name': 'portrait', 'desc': '立绘', 'size': '1024x1024', 'transparent': False, 'quality': 'medium',
                         'prompt': pipeline.PORTRAIT_TMPL.format(desc=str(args.get('desc', '')).strip('。 '), style=pipeline.DEFAULT_STYLE)}
                 (d / 'prompts.json').write_text(json.dumps([item], ensure_ascii=False), encoding='utf-8')
-                code, out = self.sh([TOOLS / 'artgen' / 'gen.py', '1', '--force'], '出立绘', env)
+                code, out = self.sh([TOOLS / 'artgen' / 'gen.py', '1', '--force'] + (['--model', im] if im else []), '出立绘', env)
             else:
                 (d / 'prompt_edit.txt').write_text(str(args.get('instruction', '')) + '\n保持人物的姿势、体型比例、朝向、构图和背景颜色完全不变，只修改上面提到的部分。', encoding='utf-8')
-                code, out = self.sh([TOOLS / 'artgen' / 'edit.py', args.get('src', 'portrait.png'), 'out/01_portrait.png', '--promptfile=prompt_edit.txt'], '图生图改版', env)
+                code, out = self.sh([TOOLS / 'artgen' / 'edit.py', args.get('src', 'portrait.png'), 'out/01_portrait.png', '--promptfile=prompt_edit.txt']
+                                    + ([f'--model={im}'] if im else []), '图生图改版', env)
             if code != 0 or not (d / 'out' / '01_portrait.png').exists():
                 return {'error': '出图失败', 'log': out[-800:]}
             self._spend('角色', pipeline.PRICE_PORTRAIT)

@@ -41,6 +41,7 @@ export const Config = !z ? undefined : z.object({
   dashscopeWorkspaceId: z.string().description('万相业务空间 id'),
   relayApiKey: z.string().role('secret').description('出立绘用的 OpenAI 兼容中转站 key（gpt-image 类）；已有立绘可不填'),
   relayBaseUrl: z.string().description('中转站 base url，形如 https://xxx/v1'),
+  relayModel: z.string().description('图像模型名（各家中转站不同，如 gpt-image-2.5）；留空用脚本默认，多半会 404'),
   zhipuApiKey: z.string().role('secret').description('智谱（免费抽构图，可选）'),
   arkApiKey: z.string().role('secret').description('火山 seedance（免费额度抽姿势，可选）'),
 })
@@ -82,7 +83,7 @@ function envFrom(config) {
   const put = (k, v) => { if (v) e[k] = v }
   put('DASHSCOPE_API_KEY', config.dashscopeApiKey); put('DASHSCOPE_BASE_URL', config.dashscopeBaseUrl)
   put('DASHSCOPE_WORKSPACE_ID', config.dashscopeWorkspaceId)
-  put('OPENAI_API_KEY', config.relayApiKey); put('OPENAI_BASE_URL', config.relayBaseUrl)
+  put('OPENAI_API_KEY', config.relayApiKey); put('OPENAI_BASE_URL', config.relayBaseUrl); put('OPENAI_MODEL', config.relayModel)
   put('ZHIPU_API_KEY', config.zhipuApiKey); put('ARK_API_KEY', config.arkApiKey)
   return e
 }

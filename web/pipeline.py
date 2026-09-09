@@ -394,8 +394,10 @@ class Job:
             self.state['artifacts']['portrait_prompt'] = instr
             argv = [TOOLS / 'artgen' / 'edit.py', self.spec['portrait_from'], 'out/01_portrait.png',
                     '--promptfile=prompt_portrait_edit.txt']
-            if self.state['options'].get('image_model'):
-                argv.append(f'--model={self.state["options"]["image_model"]}')
+            # ⚑ 图像模型：任务选项 > relay 凭据里的 model > 脚本默认（⚠ 各家中转站模型名不同，⛔ 别信脚本默认）
+            im = self.state['options'].get('image_model') or c.get('model')
+            if im:
+                argv.append(f'--model={im}')
             self.step('portrait', '立绘：图生图改版', argv, cost=PRICE_PORTRAIT, who='角色', env=env)
             self.state['artifacts']['portrait'] = 'out/01_portrait.png'
             self.save()
@@ -409,8 +411,10 @@ class Job:
         (self.dir / 'prompts.json').write_text(json.dumps([item], ensure_ascii=False, indent=2),
                                                encoding='utf-8')
         argv = [TOOLS / 'artgen' / 'gen.py', '1', '--force']
-        if self.state['options'].get('image_model'):
-            argv += ['--model', self.state['options']['image_model']]
+        im = self.state['options'].get('image_model') or c.get('model')
+        if im:
+            argv += ['--model', im]
+        self.state['artifacts']['portrait_model'] = im or '(脚本默认)'
         # ⚑ gen.py 只认环境变量 ⇒ ⚑ 把 _creds 里的 relay 注进去（⚑ 网页端配的 key 由此生效）
         self.step('portrait', '出立绘', argv, cost=PRICE_PORTRAIT, who='角色', env=env)
         png = self.dir / 'out' / '01_portrait.png'

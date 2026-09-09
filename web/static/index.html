@@ -189,7 +189,7 @@ table{border-collapse:collapse;width:100%}td,th{padding:5px 8px;border-bottom:1p
     <div class="note" id="cHint"></div>
     <label>apiKey</label><input type="password" id="cKey" autocomplete="off">
     <label id="cWsWrap">workspaceId（万相要）</label><input type="text" id="cWs">
-    <label id="cModelWrap">model（聊天 / 提示词扩写，例：deepseek-v4-flash · glm-5.3-flash）</label><input type="text" id="cModel">
+    <label id="cModelWrap">model（llm：聊天模型，例 deepseek-v4-pro；relay：图像模型，例 gpt-image-2.5 —— 点「检查」能列出中转站有哪些）</label><input type="text" id="cModel">
     <label id="cVModelWrap">vision model（看图 / VLM 挑帧，例：deepseek-v4-pro；实测 v4-flash 不认图、vision-exp 不稳定）</label><input type="text" id="cVModel">
     <div class="row" style="margin-top:10px"><button class="btn" id="cSave">保存</button><span class="dim" id="cMsg"></span></div>
     <div class="note">写到本机 <code id="cFile"></code>，不进仓库、不回显完整 key。服务只监听 127.0.0.1。</div>
@@ -418,10 +418,10 @@ $('#extZip').onclick=async()=>{const f=$('#extFile').files[0];if(!f)return;const
 
 // ───────── 凭据
 const HINT={wan:'拿 key：platform.qianwenai.com/try-ai?scene=video → 万相 3.0-视频生成 → 右上角「获取 API Key」。sk-ws- 开头的业务空间 key：baseUrl 留空即用公共域名 https://dashscope.aliyuncs.com/api/v1（实测可用）。普通 key 必须填「独立业务空间」专属域名 https://ws-xxxx.cn-beijing.maas.aliyuncs.com/api/v1（公共域名 401 且提示 key 格式不对）；域名在控制台导出的 apiKey CSV 里，字段 dashScope。',
-  relay:'OpenAI 兼容中转站，形如 https://xxx/v1。保存后点「检查」能列出它提供的图像模型。',glm:'默认 https://open.bigmodel.cn/api/paas/v4。「检查」会用 1 token 探一下上面填的 LLM 模型是否可用。',
+  relay:'OpenAI 兼容中转站，形如 https://xxx/v1。⚠ 图像模型名各家不同（脚本默认的 gpt-image-2-adobe-xy 多半不存在）：保存后点「检查」列出它有哪些，再把要用的填进 model（如 gpt-image-2.5）。',glm:'默认 https://open.bigmodel.cn/api/paas/v4。「检查」会用 1 token 探一下上面填的 LLM 模型是否可用。',
   ark:'默认 https://ark.cn-beijing.volces.com/api/v3。「检查」列出 seedance 系列可用模型。',minimax:'默认 https://api.minimaxi.com',
   llm:'任意 OpenAI 兼容端点（智谱 https://open.bigmodel.cn/api/paas/v4 · DeepSeek https://api.deepseek.com · 中转站 https://xxx/v1）。只用于把一句话扩成四段提示词，和出片用的 glm 分开配。「检查」会用 1 token 探 model 能不能聊。'};
-$('#cProv').onchange=()=>{const p=$('#cProv').value;$('#cHint').textContent=HINT[p];$('#cWsWrap').style.display=$('#cWs').style.display=p==='wan'?'':'none';$('#cModelWrap').style.display=$('#cModel').style.display=$('#cVModelWrap').style.display=$('#cVModel').style.display=p==='llm'?'':'none'};$('#cProv').onchange();
+$('#cProv').onchange=()=>{const p=$('#cProv').value;$('#cHint').textContent=HINT[p];$('#cWsWrap').style.display=$('#cWs').style.display=p==='wan'?'':'none';$('#cModelWrap').style.display=$('#cModel').style.display=(p==='llm'||p==='relay')?'':'none';$('#cVModelWrap').style.display=$('#cVModel').style.display=p==='llm'?'':'none'};$('#cProv').onchange();
 $('#cSave').onclick=async()=>{try{await api('/api/creds',{method:'POST',body:{provider:$('#cProv').value,baseUrl:$('#cBase').value,apiKey:$('#cKey').value,workspaceId:$('#cWs').value,model:$('#cModel').value,vision_model:$('#cVModel').value}});
   $('#cKey').value='';$('#cMsg').textContent='已保存';$('#cMsg').className='ok';await loadDoctor()}catch(e){$('#cMsg').textContent=e.message;$('#cMsg').className='bad'}};
 function renderCredTable(){$('#credTable').innerHTML='<tr><th>provider</th><th>状态</th><th>来源</th><th>key</th><th></th></tr>'+['wan','relay','glm','ark','minimax','llm'].map(p=>{const c=D.creds[p];
