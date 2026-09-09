@@ -1,0 +1,4 @@
+# 网页端才需要的三样；核心 tools/ 仍然只要 numpy + Pillow
+fastapi>=0.110
+uvicorn>=0.27
+python-multipart>=0.0.9

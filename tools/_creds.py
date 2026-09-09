@@ -64,6 +64,9 @@ ALIASES = {
     'zhipu': ('zhipu', 'ZHIPU'),
     'minimax': ('minimax', 'MINIMAX'),
     'audio': ('doubaoAudio', 'DOUBAO_AUDIO'),
+    # ⚑ 提示词扩写用的大模型（⚑ OpenAI 兼容：智谱 / DeepSeek / 任意中转），⚑ 和出片用的 glm 分开配
+    #   ⚑ 多一个 model 字段（⚑ 环境变量 LLM_MODEL）
+    'llm': ('llm', 'LLM'),
 }
 
 # ⚑ 能做什么 ← 需要哪几家。⚑ 缺了的后果写在第三项（⚠ 要在**花钱之前**告诉人）
@@ -121,12 +124,13 @@ def get(name):
     k = env.get(f'{env_prefix}_API_KEY')
     if k:
         return {'base': (env.get(f'{env_prefix}_BASE_URL') or '').rstrip('/'), 'key': k,
-                'workspace': env.get(f'{env_prefix}_WORKSPACE_ID', ''), '_from': 'env'}
+                'workspace': env.get(f'{env_prefix}_WORKSPACE_ID', ''),
+                'model': env.get(f'{env_prefix}_MODEL', ''), '_from': 'env'}
     # ② 用户目录
     d = user.get(name) or (user.get(cfg_key) if cfg_key else None)
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
-                'workspace': d.get('workspaceId', ''), '_from': 'user'}
+                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''), '_from': 'user'}
     # ③ 项目（⚑ 向后兼容）
     if name == 'relay':
         e = proj.get('_dotenv', {})
@@ -137,13 +141,14 @@ def get(name):
     d = proj.get(cfg_key) if cfg_key else None
     if d and d.get('apiKey'):
         return {'base': (d.get('baseUrl') or '').rstrip('/'), 'key': d['apiKey'],
-                'workspace': d.get('workspaceId', ''), '_from': 'project/config.json'}
+                'workspace': d.get('workspaceId', ''), 'model': d.get('model', ''),
+                '_from': 'project/config.json'}
     return None
 
 
 def probe():
     """→ ⚑ `(有哪些家, 能做什么)`。⚑ 工具启动时调一次，⚑ 把结果直接摆给用户看。"""
-    have = {n: get(n) for n in ('relay', 'wan', 'ark', 'glm', 'minimax')}
+    have = {n: get(n) for n in ('relay', 'wan', 'ark', 'glm', 'minimax', 'llm')}
     can = {}
     for cap, (need, opt, _desc) in CAPS.items():
         can[cap] = all(have.get(n) for n in need) and (not opt or any(have.get(n) for n in opt))
@@ -153,7 +158,7 @@ def probe():
 def report():
     have, can = probe()
     print('⚑ 凭据')
-    for n in ('relay', 'wan', 'ark', 'glm', 'minimax'):
+    for n in ('relay', 'wan', 'ark', 'glm', 'minimax', 'llm'):
         c = have.get(n)
         print(f'  {"✅" if c else "—"} {n:<9}{("来自 " + c["_from"]) if c else "未配置"}')
     print('\n⚑ 能做什么')
@@ -187,6 +192,10 @@ def _set(name):
         ws = input('workspaceId（⚑ 万相要，没有就回车）：').strip()
         if ws:
             d['providers'][name]['workspaceId'] = ws
+    if name == 'llm':
+        m = input('model（⚑ 例如 glm-5.3-flash / deepseek-chat）：').strip()
+        if m:
+            d['providers'][name]['model'] = m
     os.makedirs(os.path.dirname(USER_CFG), exist_ok=True)
     with io.open(USER_CFG, 'w', encoding='utf-8') as f:
         json.dump(d, f, ensure_ascii=False, indent=2)
