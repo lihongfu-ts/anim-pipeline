@@ -1,0 +1,23 @@
+{
+  "_说明": "项目级凭据（查找顺序里的第③位）。推荐改用 python tools/_creds.py --set=<家> 写到 ~/.gamegen/creds.json，那样不会误提交。复制本文件为 config.json 再填。",
+  "providers": {
+    "dashscope": {
+      "_坑": "baseUrl 必须是【独立业务空间】的专属域名，形如 https://ws-xxxxxxxx.cn-beijing.maas.aliyuncs.com/api/v1。公共域名 https://dashscope.aliyuncs.com/api/v1 恒 401，且报错说的是『key 格式不对』，极容易误判成 key 有问题——这里栽过两次。正确域名在控制台导出的 apiKey CSV 里，字段名 dashScope。",
+      "baseUrl": "<独立业务空间专属域名>/api/v1",
+      "apiKey": "<阿里云百炼 apiKey>",
+      "workspaceId": "<业务空间 id，万相要>"
+    },
+    "doubaoVideo": {
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "apiKey": "<火山方舟 apiKey>"
+    },
+    "zhipu": {
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "apiKey": "<智谱 apiKey>"
+    },
+    "minimax": {
+      "baseUrl": "https://api.minimaxi.com",
+      "apiKey": "<MiniMax 开放平台的 key，sk-api- 开头>"
+    }
+  }
+}

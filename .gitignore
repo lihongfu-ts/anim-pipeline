@@ -1,0 +1,12 @@
+# ⛔ 凭据一律不进仓库（正式位置是 ~/.gamegen/creds.json）
+.env
+config.json
+
+# 产物
+work/
+out/
+_ref/
+
+__pycache__/
+*.py[cod]
+.DS_Store

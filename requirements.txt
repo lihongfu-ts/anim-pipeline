@@ -1,0 +1,4 @@
+# 就这两个。API 调用是标准库 urllib 手写的，没有厂商 SDK。
+# 外部还需要 ffmpeg 在 PATH 里（抽帧用）。
+numpy>=1.24
+Pillow>=10.0
