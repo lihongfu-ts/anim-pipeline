@@ -24,7 +24,6 @@ python tools/_blade_check.py work/anim/*.mp4 --thr=0.45
 
 ⛔ 这份**不判好坏**，⚑ 只告诉你「哪几帧别挑」。⚠ 出画/贴边是另一件事，⚑ 那个 vid2anim 自检里有。
 """
-import io
 import os
 import subprocess
 import sys
@@ -32,7 +31,10 @@ import sys
 import numpy as np
 from PIL import Image
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')  # Windows 控制台默认 GBK
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别拿它找数据）
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。
@@ -40,6 +42,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别
 ROOT = os.environ.get('ANIMPIPE_ROOT') or os.getcwd()
 WORK = os.environ.get('ANIMPIPE_WORK') or os.path.join(ROOT, 'work', 'anim')  # ⚑ 中间产物：视频/联络表/gif
 OUT = os.environ.get('ANIMPIPE_OUT') or os.path.join(ROOT, 'out', 'anim')     # ⚑ 成品：序列帧图集
+sys.path.insert(0, HERE)
+from _env import need_ffmpeg, need_file  # noqa: E402
 
 
 def opt(flag: str, dflt=None, cast=str):
@@ -132,8 +136,11 @@ def main() -> None:
     # ⚑ 身体半宽。⚑ 默认 0 ＝ **按全片角色身高中位数自动推**（⚑ 理由见 check() 里那段）。
     #   ⚑ 只有在角色比例特殊时才手动给。
     half = opt('--half', 0, int)
+    need_ffmpeg()
     for p in args:
-        check(p if os.path.isabs(p) else os.path.join(ROOT, p), thr, half)
+        q = p if os.path.isabs(p) else os.path.join(ROOT, p)
+        need_file(q, '视频')
+        check(q, thr, half)
 
 
 if __name__ == '__main__':

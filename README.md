@@ -6,6 +6,14 @@
 一张立绘  →  图生视频  →  抽帧  →  抠图  →  对齐  →  序列帧图集
 ```
 
+<p align="center">
+  <img src="docs/demo_walk.gif" width="120" alt="demo 循环预览">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/demo_walk.png" width="480" alt="demo 序列帧图集">
+  <br>
+  <sub>↑ <code>python tools/demo.py</code> 零成本跑出来的：左边是循环预览，右边是接进游戏的图集（4 列 × 192×256）</sub>
+</p>
+
 工具只是外壳，真正的东西是那份 **[AI角色动画管线.md](AI角色动画管线.md)** ——
 它记了一个真实项目里**走死的五条路**、**每一笔花掉的钱**，和十条最贵的教训。
 **先读它，再跑脚本。** 不读的话，这些脚本能帮你更快地烧钱。
@@ -61,7 +69,25 @@ python tools/_creds.py --set=wan     # 交互式填一家，写进 ~/.gamegen/cr
 
 ---
 
-## 跑通一遍（不花钱的部分）
+## 五分钟跑通（不花钱、不注册）
+
+```bash
+git clone https://github.com/lihongfu-ts/anim-pipeline
+cd anim-pipeline
+pip install -r requirements.txt
+
+python tools/doctor.py     # ① 环境 / 凭据 / 路径一次问完，缺什么、怎么补
+python tools/demo.py       # ② 零成本跑通「视频 → 序列帧图集」这后半段
+```
+
+`demo.py` 自己合成一段走路视频，然后走**和真实素材完全相同的那份代码**：
+抽帧 → 抠灰底 → 按脚底/头部重心对齐 → 按核心面积归一 → 切图集 → 验收打分。
+跑完去看 `out/anim/demo_walk.png`（图集）和 `work/anim/demo_walk_看.gif`（预览）——就是上面那两张。
+
+它**不能**替你回答"AI 出的片好不好"。那是前半段（立绘 → 提示词 → 出片）的事，那一段必须花钱、
+也最需要判断力。demo 只证明你的环境是通的，并让你先看清产物长什么样。
+
+### 然后：用你自己的立绘
 
 路径约定：**数据根 = 当前工作目录**。`cd` 到你的项目再跑，产物就落在那儿：
 
@@ -74,24 +100,20 @@ python tools/_creds.py --set=wan     # 交互式填一家，写进 ~/.gamegen/cr
 
 ```bash
 cd /path/to/your-project
+T=/path/to/anim-pipeline/tools            # 下面用 $T 代替（Windows cmd 用 set T=… 和 %T%）
 
-# ① 立绘 → 留白图（技能出片的唯一合法输入；为什么见 §1.3）
-python <本仓库>/tools/make_liubai.py 立绘.png 留白.png
+python $T/_creds.py --set=wan             # 只有万相能钉首尾帧 —— 这是唯一必配的一家
 
-# ② 出视频（免费档抽卡；定稿走万相 --provider=dashscope --last=…）
-python <本仓库>/tools/gen_video.py --img=留白.png --tag=walk --promptfile=p_walk.txt
-
-# ③ 挑帧：先看带帧号的联络表，别凭感觉
-python <本仓库>/tools/_contact.py work/anim/walk.mp4
-
-# ④ 视频 → 序列帧图集（核心）
-python <本仓库>/tools/vid2anim.py work/anim/walk.mp4 --tag=walk --frames=4 --pick=loop
-
-# ⑤ 验收：判据是区间，不是下限
-python <本仓库>/tools/anim_bench.py --sheet=out/anim/walk.png --cell=192x256
+python $T/make_liubai.py 立绘.png 留白.png                      # ① 立绘 → 留白图（§1.3）
+python $T/gen_video.py --img=留白.png --last=留白.png --tag=walk \
+       --promptfile=p_walk.txt --provider=dashscope --res=480P --dur=2   # ② 出片（唯一花钱的一步）
+python $T/_contact.py work/anim/walk.mp4                        # ③ 看带帧号的联络表，再挑帧
+python $T/vid2anim.py work/anim/walk.mp4 --tag=walk --frames=4 --pick=loop   # ④ 切图集
+python $T/anim_bench.py --sheet=out/anim/walk.png --cell=192x256             # ⑤ 验收
 ```
 
-第 ③④⑤ 步和所有检查脚本都**不花钱**，可以随便跑。
+只有第 ② 步花钱（万相 480P / 2s ≈ ¥0.4）。其余全部免费，可以随便跑。
+`--img` 和 `--last` 给同一张图，首尾帧就一模一样 —— 这是所有动作能互相衔接的地基（§3.4）。
 
 ---
 
@@ -99,6 +121,8 @@ python <本仓库>/tools/anim_bench.py --sheet=out/anim/walk.png --cell=192x256
 
 | 工具 | 作用 |
 |---|---|
+| `doctor.py` | **先跑这个**：环境 / 凭据 / 路径一次问完，告诉你现在能做哪一步、缺什么怎么补 |
+| `demo.py` | 零成本跑通后半段（自己合成素材，不调任何 API），看清产物长什么样 |
 | `gen_video.py` | 图生视频，四个 provider（dashscope / zhipu / ark / minimax），支持 `--last` 首尾帧、`--poll` 断点续取 |
 | `vid2anim.py` | **核心**：视频 → 序列帧图集。三种挑帧模式、对齐、归一化、冻结 |
 | `anim_bench.py` | 判据。上下限从已出货的游戏量出来，不是拍脑袋 |

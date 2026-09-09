@@ -25,14 +25,16 @@ python tools/anim_bench.py --sheet=… --ref=<基准素材目录>              #
 ④ 剪影密度  不透明像素占内容盒的比例           ⚑ 太低 ＝ 缩小后散架
 ```
 """
-import io
 import os
 import sys
 
 import numpy as np
 from PIL import Image
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别拿它找数据）
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。

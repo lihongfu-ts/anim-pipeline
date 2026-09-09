@@ -17,14 +17,16 @@ vid2anim.py   ⚑ 抠底 ＋ 归一 ＋ 对脚 ＋ 切格子  ⇒ ⚑ 给游戏�
 ⚑ ⛔ 不抠底、不归一化：⚑ 联络表要回答的是「刀有没有出画」「有没有细成一条线」，
   ⚠ 而这两件事一旦抠过底/缩放过就**看不准了**（⚑ 出画的部分已经被裁掉）。
 """
-import io
 import os
 import subprocess
 import sys
 
 from PIL import Image, ImageDraw
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')  # Windows 控制台默认 GBK
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别拿它找数据）
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。
@@ -32,6 +34,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别
 ROOT = os.environ.get('ANIMPIPE_ROOT') or os.getcwd()
 WORK = os.environ.get('ANIMPIPE_WORK') or os.path.join(ROOT, 'work', 'anim')  # ⚑ 中间产物：视频/联络表/gif
 OUT = os.environ.get('ANIMPIPE_OUT') or os.path.join(ROOT, 'out', 'anim')     # ⚑ 成品：序列帧图集
+sys.path.insert(0, HERE)
+from _env import need_ffmpeg, need_file  # noqa: E402
 
 
 def opt(flag: str, dflt=None, cast=str):
@@ -47,6 +51,8 @@ def main() -> None:
         print(__doc__)
         sys.exit(1)
     mp4 = args[0] if os.path.isabs(args[0]) else os.path.join(ROOT, args[0])
+    need_ffmpeg()
+    need_file(mp4, '视频', 'gen_video.py 出的片默认落在 work/anim/')
     n, cols = opt('--n', 12, int), opt('--cols', 4, int)
     tag = os.path.splitext(os.path.basename(mp4))[0]
     out = opt('--out', os.path.join(WORK, f'{tag}_联络表.png'))

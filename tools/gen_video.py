@@ -31,7 +31,6 @@ python tools/gen_video.py --poll=<任务id>    # ⚑ 只取结果（⚠ 上一�
 ⚑ 凭据：`python tools/_creds.py` 看缺哪家；⚑ 三家分工和单价见《AI角色动画管线.md》§3 / §8。
 """
 import base64
-import io
 import json
 import os
 import sys
@@ -39,7 +38,10 @@ import time
 import urllib.error
 import urllib.request
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')  # Windows 控制台默认 GBK
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。
 #   ⚑ 和 `artgen`（ai-asset-gen）同一条约定。⚑ 要改位置就设 ANIMPIPE_WORK。

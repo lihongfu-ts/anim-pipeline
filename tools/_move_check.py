@@ -22,7 +22,6 @@ python tools/_move_check.py <mp4> --every=4          # ⚑ 每 4 帧打一行
 ⚠⚠ **腾空判据⛔ 不能只看脚底 y** —— ⚑ 人往画面上方飘一点也会让脚底 y 变小。
   ⇒ ⚑ 同时印**身高**：⚑ 真腾空时身体蜷缩、身高**变短**（⚑ 正是 --norm=off 存在的原因）。
 """
-import io
 import os
 import shutil
 import subprocess
@@ -32,7 +31,10 @@ import tempfile
 import numpy as np
 from PIL import Image
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')  # Windows 控制台默认 GBK
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别拿它找数据）
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。
@@ -40,6 +42,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别
 ROOT = os.environ.get('ANIMPIPE_ROOT') or os.getcwd()
 WORK = os.environ.get('ANIMPIPE_WORK') or os.path.join(ROOT, 'work', 'anim')  # ⚑ 中间产物：视频/联络表/gif
 OUT = os.environ.get('ANIMPIPE_OUT') or os.path.join(ROOT, 'out', 'anim')     # ⚑ 成品：序列帧图集
+sys.path.insert(0, HERE)
+from _env import need_ffmpeg, need_file  # noqa: E402
 sys.path.insert(0, os.path.join(HERE, 'artgen'))
 from cutout_grey import cutout  # noqa: E402
 
@@ -89,7 +93,13 @@ def measure(path):
 
 
 def main():
-    mp4 = [a for a in sys.argv[1:] if not a.startswith('--')][0]
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if not args:
+        print(__doc__)
+        sys.exit(1)
+    mp4 = args[0] if os.path.isabs(args[0]) else os.path.join(ROOT, args[0])
+    need_ffmpeg()
+    need_file(mp4, '视频', 'gen_video.py 出的片默认落在 work/anim/')
     every = opt('--every', 4, int)
     tmp = tempfile.mkdtemp(prefix='movechk_')
     try:

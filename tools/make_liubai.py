@@ -19,14 +19,16 @@ python tools/make_liubai.py <in> <out> --h=0.547 --cx=0.540 --foot=0.779 --size=
   ⚑ 22(朝左) 是 (143,142,144)，⚑ 25(横刀) 是 (153,152,152)，⚑ 两张就不一样。
   ⚑ 底色错了 ⇒ ⚠ vid2anim 抠灰底会连角色边缘一起吃掉／或留一圈灰边。
 """
-import io
 import os
 import sys
 
 import numpy as np
 from PIL import Image
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')  # Windows 控制台默认 GBK
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别拿它找数据）
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。

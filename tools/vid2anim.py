@@ -36,7 +36,6 @@ python tools/vid2anim.py ... --frames=6 --pick=even      # ⚑ 一次性动画�
    ⚑ 而且**不再是严格中性**（R/G/B 差 4）。⚑ `cutout_grey.cutout(bg=None)` 自己会量。
 ```
 """
-import io
 import os
 import shutil
 import subprocess
@@ -45,7 +44,10 @@ import sys
 import numpy as np
 from PIL import Image
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')  # Windows 控制台默认 GBK
+try:                                                # Windows 控制台默认 GBK
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # ⚑ 幂等 ⇒ ⚑ 被 import 也安全
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))   # ⚑ 代码位置（⛔ 别拿它找数据）
 # ⚑ 数据根 ＝ **当前工作目录**（⛔ 不是脚本位置）—— ⚑ cd 到你的项目再跑，产物就落在那儿。
@@ -54,7 +56,9 @@ ROOT = os.environ.get('ANIMPIPE_ROOT') or os.getcwd()
 WORK = os.environ.get('ANIMPIPE_WORK') or os.path.join(ROOT, 'work', 'anim')  # ⚑ 中间产物：视频/联络表/gif
 OUT = os.environ.get('ANIMPIPE_OUT') or os.path.join(ROOT, 'out', 'anim')     # ⚑ 成品：序列帧图集
 sys.path.insert(0, os.path.join(HERE, 'artgen'))
+sys.path.insert(0, HERE)
 from cutout_grey import cutout  # noqa: E402
+from _env import need_ffmpeg, need_file  # noqa: E402
 
 DST = OUT
 LOOK = WORK
@@ -580,6 +584,8 @@ def main():
     if _c:
         CELL = tuple(int(v) for v in _c.lower().split('x'))
     mp4 = args[0] if os.path.isabs(args[0]) else os.path.join(ROOT, args[0])
+    need_ffmpeg()
+    need_file(mp4, '视频', 'gen_video.py 出的片默认落在 work/anim/')
     tag = opt('--tag', os.path.splitext(os.path.basename(mp4))[0])
     n = opt('--frames', 2, int)
     mode = opt('--pick', 'extreme')
